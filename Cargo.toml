@@ -1,0 +1,12 @@
+[package]
+name = "parser300b"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name         = "parser300b"
+crate-type   = [ "rlib", "cdylib" ]
+
+[dependencies]
+colored = "2.0.0"
+trim-margin = "0.1.0"
