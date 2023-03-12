@@ -1,7 +1,6 @@
-use std::{ffi::{c_char, CStr}, str::Utf8Error, slice};
+use std::{ffi::{c_char, CStr, c_void}, str::Utf8Error, slice, fmt::Display};
 
-use crate::{Term, Expression, Production, Grammar};
-
+use crate::{Term, Expression, Production, Grammar, ctx::Token};
 
 
 
@@ -72,14 +71,51 @@ impl parser300b_Grammar {
     }
 }
 
+#[repr(C)]
+pub struct parser300b_Token {
+    pub name: *const c_char,
+    pub data: *const c_void
+}
+
+impl parser300b_Token {
+    unsafe fn to_non_c(&self) -> Result<CToken, Utf8Error> {
+        Ok(CToken {
+            name: CStr::from_ptr(self.name).to_str()?,
+            data: self.data
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CToken<'n> {
+    name: &'n str,
+    data: *const c_void
+}
+
+impl<'n> Display for CToken<'n> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name)
+    }
+}
+
+impl<'n> Token for CToken<'n> {
+    fn name(&self) -> &str {
+        self.name
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn parser300b_parse(grammar: *const parser300b_Grammar) {
+pub unsafe extern "C" fn parser300b_parse(grammar: *const parser300b_Grammar, tokens: *const parser300b_Token, token_count: usize) {
     if !grammar.is_null() {
         let grammar: &parser300b_Grammar = &*grammar;
-
         let grammar = grammar.to_non_c().unwrap();
+        let tokens = slice::from_raw_parts(tokens, token_count)
+            .iter()
+            .map(|t| t.to_non_c())
+            .collect::<Result<Vec<_>, _>>();
 
-        //println!("parser300b_parse___: {:#?}", grammar);
+
+        //println!("parser300b_parse___: {:#?} <- {:#?}", tokens, grammar);
 
 
     } else {

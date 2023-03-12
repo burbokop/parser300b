@@ -55,7 +55,12 @@ void parser300b_Grammar_free(const parser300b_Grammar* grammar) {
     free((parser300b_Grammar*)grammar);
 }
 
-void parser300b_parse(const parser300b_Grammar* grammar);
+struct parser300b_Token {
+    const char* name;
+    const void* data;
+};
+
+void parser300b_parse(const parser300b_Grammar* grammar, const parser300b_Token* tokens, size_t token_count);
 
 #ifdef __cplusplus
 }
@@ -119,9 +124,34 @@ struct Grammar {
     }
 };
 
-inline void parse(const Grammar& grammar) {
+template <typename T>
+concept Token = requires(T const t) {
+    { t.name_ref() } -> std::convertible_to<const std::string&>;
+};
+
+/**
+ * @brief token_vec_to_c_ref
+ * @param tokens
+ * @return
+ * @note all elements passed as refs. to dealloc call `free`
+ */
+template<Token T>
+const parser300b_Token* token_vec_to_c_ref(const std::vector<T>& tokens) {
+    parser300b_Token* result = (parser300b_Token*)malloc(tokens.size() * sizeof(parser300b_Token));
+    for(size_t i = 0; i < tokens.size(); ++i) {
+        result[i].name = tokens[i].name_ref().c_str();
+        result[i].data = &tokens[i];
+    }
+    return result;
+}
+
+template<Token T>
+inline void parse(const Grammar& grammar, const std::vector<T>& tokens) {
     auto c_grammar = grammar.c_ref();
-    parser300b_parse(c_grammar);
+    auto c_tokens = token_vec_to_c_ref(tokens);
+
+    parser300b_parse(c_grammar, c_tokens, tokens.size());
+    free((parser300b_Token*)c_tokens);
     parser300b_Grammar_free(c_grammar);
 }
 

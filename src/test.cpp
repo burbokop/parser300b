@@ -2,6 +2,7 @@
 #include "lib.h"
 #include <assert.h>
 #include <iostream>
+#include <gtest/gtest.h>
 
 namespace memtest {
 int parse_line(char* line){
@@ -34,7 +35,15 @@ int current_used_mem(){
 }
 }
 
-void memleak_test() {
+struct TestToken {
+    std::string name;
+
+    const std::string& name_ref() const {
+        return name;
+    }
+};
+
+TEST(main_suite, memleak_test) {
     using namespace parser300b;
 
     const auto iteration = []{
@@ -67,7 +76,12 @@ void memleak_test() {
             }
         };
 
-        parse(grammar);
+        const std::vector<TestToken> tokens = {
+            TestToken { .name = "token0" },
+            TestToken { .name = "token1" }
+        };
+
+        parse(grammar, tokens);
     };
 
     for(int i = 0; i < 10; ++i) {
@@ -81,6 +95,3 @@ void memleak_test() {
 }
 
 
-int main() {
-    memleak_test();
-}

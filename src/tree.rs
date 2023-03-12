@@ -1,29 +1,20 @@
 
-use std::fmt::{Display};
-
-use crate::ctx::Token;
-
+use std::fmt::Display;
 
 
 #[derive(PartialEq, Debug, Clone, Eq)]
-pub enum ParseTreeNode<'t, 'g> {
-    Terminal(&'t Token),
-    Nonterminal(ParseTree<'t, 'g>),
+pub enum ParseTreeNode<'t, 'g, T> {
+    Terminal(&'t T),
+    Nonterminal(ParseTree<'t, 'g, T>),
 }
 
 #[derive(PartialEq, Debug, Clone, Eq)]
-pub struct ParseTree<'t, 'g> {
+pub struct ParseTree<'t, 'g, T> {
     pub lhs: &'g String,
-    pub rhs: Vec<ParseTreeNode<'t, 'g>>,
+    pub rhs: Vec<ParseTreeNode<'t, 'g, T>>,
 }
 
-impl<'t, 'g> PartialEq<&str> for ParseTree<'t, 'g> {
-    fn eq(&self, other: &&str) -> bool {
-        format!("{}", self).as_str() == *other
-    }
-}
-
-fn format_node(tree: &ParseTreeNode, f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
+fn format_node<T: Display>(tree: &ParseTreeNode<T>, f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
     let tab = String::from_utf8(vec![b'`'; level]).unwrap();
     match tree {
         ParseTreeNode::Terminal(terminal) => {
@@ -36,7 +27,7 @@ fn format_node(tree: &ParseTreeNode, f: &mut std::fmt::Formatter<'_>, level: usi
     Ok(())
 }
 
-fn format_tree(tree: &ParseTree, f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
+fn format_tree<T: Display>(tree: &ParseTree<T>, f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
     let tab = String::from_utf8(vec![b'`'; level]).unwrap();
     f.write_fmt(format_args_nl!("{}{}", tab, tree.lhs))?;
     for r in &tree.rhs {
@@ -45,7 +36,7 @@ fn format_tree(tree: &ParseTree, f: &mut std::fmt::Formatter<'_>, level: usize) 
     Ok(())
 }
 
-impl<'t, 'g> Display for ParseTree<'t, 'g> {
+impl<'t, 'g, T: Display> Display for ParseTree<'t, 'g, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             format_tree(self, f, 0)

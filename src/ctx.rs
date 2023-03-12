@@ -5,19 +5,26 @@ use std::ops::Range;
 use crate::{combination::*, grammar::Grammar};
 
 
-pub type Token = String;
+pub trait Token: Debug + Display + Clone {
+    fn name(&self) -> &str;
+}
 
+impl Token for String {
+    fn name(&self) -> &str {
+        self.as_str()
+    }
+}
 
-pub struct Ctx<'t, 'g> {
+pub struct Ctx<'t, 'g, T> {
     pub begin: usize,
     pub end: usize,
-    pub tokens: &'t Vec<Token>,
+    pub tokens: &'t Vec<T>,
     pub grammar: &'g Grammar,
     pub level: usize
 }
 
-impl<'t, 'g> Ctx<'t, 'g> {
-    pub fn next_level(&self) -> Ctx<'t, 'g> {
+impl<'t, 'g, T> Ctx<'t, 'g, T> {
+    pub fn next_level(&self) -> Ctx<'t, 'g, T> {
         Ctx {
             begin: self.begin, 
             end: self.end, 
@@ -27,7 +34,7 @@ impl<'t, 'g> Ctx<'t, 'g> {
         }
     }
 
-    pub fn at(&self, range: Range<usize>) -> Ctx<'t, 'g> {
+    pub fn at(&self, range: Range<usize>) -> Ctx<'t, 'g, T> {
         Ctx { 
             begin: range.start, 
             end: range.end, 
@@ -37,8 +44,8 @@ impl<'t, 'g> Ctx<'t, 'g> {
         }
     }
 
-    pub fn split(&self, combination: Combination) -> Vec<Ctx<'t, 'g>> {
-        let mut result: Vec<Ctx> = Vec::with_capacity(combination.marks.len());
+    pub fn split(&self, combination: Combination) -> Vec<Ctx<'t, 'g, T>> {
+        let mut result: Vec<Ctx<T>> = Vec::with_capacity(combination.marks.len());
 
         if combination.marks.len() > 0 {
             if combination.marks[0] > self.begin {
@@ -92,12 +99,12 @@ impl<'t, 'g> Ctx<'t, 'g> {
         return self.end - self.begin
     }
 
-    pub fn front(&self) -> &'t Token {
+    pub fn front(&self) -> &'t T {
         &self.tokens[self.begin]
     }
 }
 
-impl<'t, 'g> PartialEq for Ctx<'t, 'g> {
+impl<'t, 'g, T> PartialEq for Ctx<'t, 'g, T> {
     fn eq(&self, other: &Self) -> bool {
         self.begin == other.begin && 
         self.end == other.end && 
@@ -106,17 +113,26 @@ impl<'t, 'g> PartialEq for Ctx<'t, 'g> {
     }
 }
 
-impl<'t, 'g> Display for Ctx<'t, 'g> {
+impl<'t, 'g, T: Display> Display for Ctx<'t, 'g, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            f.write_fmt(format_args!("<{}, {}, '{}'> ", self.begin, self.end, &self.tokens[self.begin..self.end].join("")))
+            f.write_fmt(format_args!(
+                "<{}, {}, '{}'> ", 
+                self.begin, 
+                self.end, 
+                self.tokens[self.begin..self.end]
+                    .iter()
+                    .map(|p| format!("{}", p))
+                    .collect::<Vec<_>>()
+                    .join("")
+            ))
         } else {
             f.write_fmt(format_args!("<{}, {}>", self.begin, self.end))
         }
     }
 }
 
-impl<'t, 'g> Debug for Ctx<'t, 'g> {
+impl<'t, 'g, T> Debug for Ctx<'t, 'g, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("<{}, {}>", self.begin, self.end))
     }
@@ -160,7 +176,7 @@ mod tests {
 
     #[test]
     fn split_ctx_test() {
-        let tokens = Vec::new();
+        let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
         let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0 };
 
@@ -213,7 +229,7 @@ mod tests {
     /// 
     #[test]
     fn split_ctx_test2() {
-        let tokens = Vec::new();
+        let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
         let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0 };
 
@@ -252,7 +268,7 @@ mod tests {
 
     #[test]
     fn split_ctx_into_same_test() {
-        let tokens = Vec::new();
+        let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
         let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0 };
 

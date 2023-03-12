@@ -7,7 +7,7 @@ use colored::*;
 
 pub type Error = String;
 
-pub fn do_production<'t, 'g>(ctx: &Ctx<'t, 'g>, production: &'g Production) -> Vec<Result<ParseTree<'t, 'g>, Error>> {
+pub fn do_production<'t, 'g, T: Token>(ctx: &Ctx<'t, 'g, T>, production: &'g Production) -> Vec<Result<ParseTree<'t, 'g, T>, Error>> {
     println!("{:<48}{:#}", format!("->{}{}", "`".repeat(ctx.level), production.lhs), ctx);
 
     //println!("{}", format!("do_production: {}, {:?}", ctx, production).yellow());
@@ -23,14 +23,14 @@ pub fn do_production<'t, 'g>(ctx: &Ctx<'t, 'g>, production: &'g Production) -> V
 }
 
 
-pub fn do_term<'t, 'g>(ctx: &Ctx<'t, 'g>, term: &'g Term) -> Vec<Result<ParseTreeNode<'t, 'g>, Error>> {
+pub fn do_term<'t, 'g, T: Token>(ctx: &Ctx<'t, 'g, T>, term: &'g Term) -> Vec<Result<ParseTreeNode<'t, 'g, T>, Error>> {
     println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
 
     //println!("{}", format!("do_term: {}, {:?}", ctx, term).magenta());
     let r = match term {
         Term::Terminal(terminal) => {
             if ctx.len() == 1 {
-                if ctx.front() == terminal {
+                if ctx.front().name() == terminal {
                     vec![ Ok(ParseTreeNode::Terminal(ctx.front())) ]
                 } else {
                     vec![ Err(format!("front token '{}' is not given terminal '{}'", ctx.front(), terminal)) ]
@@ -56,7 +56,7 @@ pub fn do_term<'t, 'g>(ctx: &Ctx<'t, 'g>, term: &'g Term) -> Vec<Result<ParseTre
     r
 }
 
-pub fn do_expression<'t, 'g>(ctx: &Ctx<'t, 'g>, production_name: &'g String, expression: &'g Expression) -> Vec<Result<ParseTree<'t, 'g>, Error>> {
+pub fn do_expression<'t, 'g, T: Token>(ctx: &Ctx<'t, 'g, T>, production_name: &'g String, expression: &'g Expression) -> Vec<Result<ParseTree<'t, 'g, T>, Error>> {
     println!("{:<48}{:#}", format!("E {}{}", "`".repeat(ctx.level), VecDisplay { v: expression.terms.iter().collect() }), ctx);
 
     for c in ctx.combinations(expression.terms.len()) {
@@ -73,7 +73,7 @@ pub fn do_expression<'t, 'g>(ctx: &Ctx<'t, 'g>, production_name: &'g String, exp
                 .split(combination)
                 .iter()
                 .zip(expression.terms.iter())
-                .map(|(subctx, term): (&Ctx<'t, 'g>, _)| do_term(subctx, term))
+                .map(|(subctx, term): (&Ctx<'t, 'g, T>, _)| do_term(subctx, term))
                 .collect()
         ).into_iter().map(|subcombination| {
             //println!("{}", format!("\t\tsubcombination: {:?}", subcombination).blue().italic());
@@ -106,7 +106,7 @@ pub fn do_expression<'t, 'g>(ctx: &Ctx<'t, 'g>, production_name: &'g String, exp
     r
 }
 
-pub fn parse<'t, 'g>(grammar: &'g Grammar, tokens: &'t Vec<Token>) -> Vec<Result<ParseTree<'t, 'g>, Error>> {
+pub fn parse<'t, 'g, T: Token>(grammar: &'g Grammar, tokens: &'t Vec<T>) -> Vec<Result<ParseTree<'t, 'g, T>, Error>> {
     println!("input: {:?} <- {:#?}", tokens, grammar);
 
     let mut ctx = Ctx {
@@ -126,50 +126,13 @@ pub fn parse<'t, 'g>(grammar: &'g Grammar, tokens: &'t Vec<Token>) -> Vec<Result
 
 #[cfg(test)]
 mod tests {
-    use crate::combination::Combination;
-    use crate::ctx::{Ctx, VecDisplay};
     use crate::{
         parse, 
         Error, 
         assert_contains_tree
     };
     use crate::grammar::Grammar;
-
     use trim_margin::MarginTrimmable;
-
-    #[test]
-    fn aaa() {
-
-
-        let mut cc: Vec<Combination> = Vec::new();
-
-        
-
-        for i in 0..(3-1) {
-            for j in 1..7 {
-                for k in 1..7 {
-                    for l in 1..7 {
-                        if j + k + l < 7 {
-                            println!("{}, {}, {}", j, j + k, j + k + l);
-                            cc.push(Combination { marks: vec![ j, j + k, j + k + l ] })
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let tokens = Vec::new();
-        let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0 };
-
-
-        for c in cc {
-            println!("{}", VecDisplay { v: ctx.split(c) })
-        }
-
-    }
 
     #[test]
     fn postfix_test() {
@@ -275,7 +238,7 @@ mod tests {
         );
     }
 
-    //#[test]
+    #[test]
     fn block_subs_test() {
         assert_contains_tree!(
             r#"
@@ -309,7 +272,7 @@ mod tests {
     }
 
 
-    //#[test]
+    #[test]
     fn block_postfix_test() {
         assert_contains_tree!(
             r#"
