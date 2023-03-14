@@ -3,13 +3,19 @@ use std::fmt::Display;
 
 
 #[derive(PartialEq, Debug, Clone, Eq)]
-pub enum ParseTreeNode<'t, 'g, T> {
+pub enum ParseTreeNode<'t, 'g, T> 
+where
+    T: Sized
+{
     Terminal(&'t T),
     Nonterminal(ParseTree<'t, 'g, T>),
 }
 
 #[derive(PartialEq, Debug, Clone, Eq)]
-pub struct ParseTree<'t, 'g, T> {
+pub struct ParseTree<'t, 'g, T>
+where
+    T: Sized
+{
     pub lhs: &'g String,
     pub rhs: Vec<ParseTreeNode<'t, 'g, T>>,
 }

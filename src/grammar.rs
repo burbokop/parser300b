@@ -57,6 +57,8 @@ fn parse_term(term: Chars<'_>) -> Term {
     let vec: Vec<_> = term.collect();
     if vec.len() > 1 && vec[0] == '<' && vec[vec.len() - 1] == '>' {
         Term::Nonterminal(String::from_iter(vec[1..vec.len() - 1].into_iter()))
+    } else if vec.len() > 1 && vec[0] == '"' && vec[vec.len() - 1] == '"' {
+        Term::Terminal(String::from_iter(vec[1..vec.len() - 1].into_iter()))
     } else {
         Term::Terminal(String::from_iter(vec.into_iter()))
     }
@@ -75,41 +77,31 @@ impl TryFrom<&str> for Grammar {
     type Error = ParseError;    
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        println!("i: {}", value.trim());
-
         let mut result = Grammar { productions: vec![] };
-
-    
         for line in value.lines() {
             let line = line.trim();
             if line.is_empty() { continue; }
 
-            println!("line: {}", line);
-
-            let mut split = line.split(":=");
-
-            result.productions.push(Production {
-                lhs: match split.next() {
-                    Some(s) => Ok(parse_lhs(s.trim().chars())?),
-                    None => Err(ParseError::LhsNotFound(String::from(line))),
-                }?,
-                rhs: match split.next() {
-                    Some(s) => {
-                        Ok(s.split("|").map(|expr| {                             
-                            Expression { 
-                                terms: expr
-                                    .split(" ")
-                                    .map(str::trim)
-                                    .filter(|s| !s.is_empty())
-                                    .map(|term| parse_term(term.chars()))
-                                    .collect() 
-                            }
-                        })
-                            .collect())
-                    },
-                    None => Err(ParseError::RhsNotFound(String::from(line))),
-                }?
-            });
+            let delim = "::=";
+            match line.find(delim) {
+                Some(split_pos) => {
+                    Ok(result.productions.push(Production {
+                        lhs: parse_lhs(line[0..split_pos].trim().chars())?,
+                        rhs: line[(split_pos + delim.len())..line.len()].split("|").map(|expr| {                             
+                                    Expression { 
+                                        terms: expr
+                                            .split(" ")
+                                            .map(str::trim)
+                                            .filter(|s| !s.is_empty())
+                                            .map(|term| parse_term(term.chars()))
+                                            .collect() 
+                                    }
+                                })
+                                    .collect()
+                    }))    
+                },
+                None => Err(ParseError::RhsNotFound(String::from(line))),
+            }?;
         }
         Ok(result)
     }
@@ -131,8 +123,8 @@ mod tests {
     #[test]
     fn try_from_test() {
         let grammar: Result<Grammar, _> = r#"
-            <block> := <expr> | t
-            <expr> := id = val | t | c
+            <block> ::= <expr> | t
+            <expr> ::= id = val | t | c
         "#.try_into();
 
         match grammar {

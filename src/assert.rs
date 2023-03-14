@@ -27,7 +27,9 @@ macro_rules! assert_contains_tree {
             .map(|x| String::from(*x))
             .collect();
 
-        let trees: Vec<_> = parse(&g, &t)
+        let ctx = crate::parse::make_ctx(&g, &t);
+
+        let trees: Vec<_> = parse(ctx)
             .into_iter()
             .map(|t|t.map(|t|format!("{:#}", t)))
             .collect();

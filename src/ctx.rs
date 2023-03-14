@@ -15,6 +15,7 @@ impl Token for String {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Ctx<'t, 'g, T> {
     pub begin: usize,
     pub end: usize,

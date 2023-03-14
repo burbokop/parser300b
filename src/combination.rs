@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::{VecDeque, btree_map::Iter}, marker::PhantomData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combination {
@@ -124,6 +124,79 @@ where
     } else {
         Vec::new()
     }
+}
+
+
+
+
+/// 1|2, 3|4, 5
+/// 
+/// initial:
+/// (1, ...)
+/// (1, ...), (2, ...)
+/// continuous:
+/// (2, ...),    (1, 3, ...), (1, 4, ...)
+/// (1, 3, ...), (1, 4, ...), (2, 3, ...), (2, 4, ...)
+/// (1, 4, ...), (2, 3, ...), (2, 4, ...), (1, 3, 5)
+/// (2, 3, ...), (2, 4, ...), (1, 3, 5),   (1, 4, 5)
+/// (2, 4, ...), (1, 3, 5),   (1, 4, 5),   (2, 3, 5)
+/// (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
+/// result:
+/// (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
+
+
+
+/// next: 1|2
+
+
+struct CombinationIter<T, II, OI> 
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>
+{
+    input: OI
+}
+
+impl<T, II, OI> Iterator for CombinationIter<T, II, OI> 
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+
+struct ExpandCombinationsOuterIter<T, II, OI> 
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>
+{
+    input: OI
+}
+
+impl<T, II, OI> Iterator for ExpandCombinationsOuterIter<T, II, OI>
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>,
+{
+    type Item = CombinationIter<T, II, OI>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        //Some(CombinationIter { input: self.input })
+        None
+    }
+}
+
+
+pub fn expand_combinations_iter<T: Clone>(input: impl Iterator<Item = impl Iterator<Item = T>>) -> impl Iterator<Item = impl Iterator<Item = T>> {
+    let r = expand_combinations(input.map(|x| x.collect::<Vec<_>>()).collect::<Vec<_>>())
+        .into_iter()
+        .map(|x|x.into_iter());
+    r
+    //ExpandCombinationsOuterIter { input: input }
 }
 
 
