@@ -10,6 +10,7 @@ extern "C" {
 struct parser300b_Term {
     const char* value;
     bool is_terminal;
+    bool is_optional;
 };
 
 void parser300b_Term_free(const parser300b_Term* terms, size_t count) {
@@ -74,12 +75,14 @@ namespace parser300b {
 struct Term {
     std::string value;
     bool is_terminal;
+    bool is_optional;
 
     static parser300b_Term* c_ref(const std::vector<Term>& terms) {
         parser300b_Term* result = (parser300b_Term*)malloc(terms.size() * sizeof(parser300b_Term));
         for(size_t i = 0; i < terms.size(); ++i) {
             result[i].value = strdup(terms[i].value.c_str());
             result[i].is_terminal = terms[i].is_terminal;
+            result[i].is_optional = terms[i].is_optional;
         }
         return result;
     }

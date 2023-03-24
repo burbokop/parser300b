@@ -5,11 +5,11 @@
 #include <gtest/gtest.h>
 
 namespace memtest {
+
 int parse_line(char* line){
-    // This assumes that a digit will be found and the line ends in " Kb".
     int i = strlen(line);
     const char* p = line;
-    while (*p <'0' || *p > '9') p++;
+    while(*p <'0' || *p > '9') p++;
     line[i-3] = '\0';
     i = atoi(p);
     return i;
@@ -24,8 +24,8 @@ int current_used_mem(){
     int result = -1;
     char line[128];
 
-    while (fgets(line, 128, file) != NULL){
-        if (strncmp(line, "VmSize:", 7) == 0){
+    while(fgets(line, 128, file) != NULL) {
+        if(strncmp(line, "VmSize:", 7) == 0) {
             result = parse_line(line);
             break;
         }
@@ -33,6 +33,7 @@ int current_used_mem(){
     fclose(file);
     return result;
 }
+
 }
 
 struct TestToken {
@@ -56,11 +57,13 @@ TEST(main_suite, memleak_test) {
                             .terms = {
                                 Term {
                                     .value = "term1",
-                                    .is_terminal = false
+                                    .is_terminal = false,
+                                    .is_optional = false
                                 },
                                 Term {
                                     .value = "term2",
-                                    .is_terminal = true
+                                    .is_terminal = true,
+                                    .is_optional = false
                                 }
                             }
                         },

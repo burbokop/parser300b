@@ -110,16 +110,13 @@ impl<'n> Token for CToken<'n> {
 pub unsafe extern "C" fn parser300b_parse(grammar: *const parser300b_Grammar, tokens: *const parser300b_Token, token_count: usize) {
     if !grammar.is_null() {
         let grammar: &parser300b_Grammar = &*grammar;
-        let _grammar = grammar.to_non_c().unwrap();
-        let _tokens = slice::from_raw_parts(tokens, token_count)
+        let grammar = grammar.to_non_c().unwrap();
+        let tokens = slice::from_raw_parts(tokens, token_count)
             .iter()
             .map(|t| t.to_non_c())
             .collect::<Result<Vec<_>, _>>();
 
-
-        //println!("parser300b_parse___: {:#?} <- {:#?}", tokens, grammar);
-
-
+        println!("parser300b_parse: {:#?} <- {:#?}", tokens, grammar);
     } else {
         panic!("grammar is null")
     }
