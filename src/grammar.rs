@@ -3,7 +3,7 @@ use std::{
     str::Chars
 };
 
-use crate::combination::{expand_combinations, expand_combinations_iter};
+use crate::combination::expand_combinations_iter;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Term {
@@ -342,7 +342,7 @@ mod tests {
         
     }
 
-    //#[test]
+    #[test]
     fn try_from_or_test() {
         let grammar: Result<Grammar, _> = r#"
             <expr>     ::= <list> | <list> "|" <expr>

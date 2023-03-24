@@ -106,8 +106,7 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
     }
 
     pub fn combinations(&self, subctx_count: usize) -> Vec<Combination> {
-        //generate_combinations(self.begin + 1, self.end, subctx_count - 1)
-        __gen(self.begin + 1, self.end, subctx_count - 1)
+        generate_combinations(self.begin + 1, self.end, subctx_count - 1)
     }
 
     pub fn len(&self) -> usize {

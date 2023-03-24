@@ -90,6 +90,7 @@ impl parser300b_Token {
 #[derive(Debug, Clone)]
 struct CToken<'n> {
     pub name: &'n str,
+    #[allow(dead_code)]
     pub data: *const c_void
 }
 
@@ -109,8 +110,8 @@ impl<'n> Token for CToken<'n> {
 pub unsafe extern "C" fn parser300b_parse(grammar: *const parser300b_Grammar, tokens: *const parser300b_Token, token_count: usize) {
     if !grammar.is_null() {
         let grammar: &parser300b_Grammar = &*grammar;
-        let grammar = grammar.to_non_c().unwrap();
-        let tokens = slice::from_raw_parts(tokens, token_count)
+        let _grammar = grammar.to_non_c().unwrap();
+        let _tokens = slice::from_raw_parts(tokens, token_count)
             .iter()
             .map(|t| t.to_non_c())
             .collect::<Result<Vec<_>, _>>();

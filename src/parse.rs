@@ -3,7 +3,7 @@ use crate::tree::*;
 use crate::combination::*;
 use crate::ctx::*;
 
-use colored::*;
+
 
 pub type Error = String;
 
@@ -193,7 +193,7 @@ mod tests {
     use crate::{
         parse, 
         Error, 
-        assert_contains_tree, Production, Expression, Term, OptTerm
+        assert_contains_tree
     };
     use crate::grammar::Grammar;
     use trim_margin::MarginTrimmable;
@@ -207,6 +207,11 @@ mod tests {
 
     fn mem_print() {
         unsafe { jemalloc_sys::malloc_stats_print(Some(write_cb), null_mut(), null()) }
+    }
+
+    #[test]
+    fn aaaa() {
+        mem_print();
     }
 
     #[test]
@@ -528,262 +533,4 @@ mod tests {
             "#
         );
     }
-
-    //#[test]
-    fn hard_level_test2() {
-         
-    }
-
-    //#[test]
-    fn hard_level_test3() {
-        assert_contains_tree!(
-            HARD_LVL_GRAMMAR,
-            [
-                "<", "p", "7", ">", "::=", "<", "t", ">", "\n",
-                "<", "T", "_", ">", "::=", "`", "2", "1", "`", "<", "f", ">", "\n",
-                "<", "y", ">", "::=", "<", "m", ">", "`", "y", "9", "`", "\n"
-            ],
-            ""
-        );    
-    }
-
-    //#[test]
-    fn bnf() {
-        let g = r#"
-            |<syntax>    ::= <rule> | <rule> <syntax>
-            |<rule>      ::= "<" <rule_name> ">" "::=" <expr> <line_end>
-            |<expr>      ::= <list> | <list> "|" <expr>
-            |<line_end>  ::= "\n" | <line_end> <line_end>
-            |<list>      ::= <term> | <term> <list>
-            |<term>      ::= <literal> | "<" <rule_name> ">"
-            |<literal>   ::= "`" <text> "`"
-            |<text>      ::= TEXT
-            |<rule_name> ::= WORD
-        "#.trim_margin().unwrap();
-
-
-        let g2 = Grammar {
-            productions: vec![
-                Production {
-                    lhs: "syntax".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "rule".to_string(),
-                                )),
-                            ],
-                        },
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "rule".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "syntax".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "rule".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "<".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "rule_name".to_string(),
-                                )),
-                                OptTerm::obl(Term::Terminal(
-                                    ">".to_string(),
-                                )),
-                                OptTerm::obl(Term::Terminal(
-                                    "::=".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "expr".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "line_end".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "expr".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "list".to_string(),
-                                )),
-                            ],
-                        },
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "list".to_string(),
-                                )),
-                                OptTerm::obl(Term::Terminal(
-                                    "|".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "expr".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "line_end".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "\n".to_string(),
-                                )),
-                            ],
-                        },
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "line_end".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "line_end".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "list".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "term".to_string(),
-                                )),
-                            ],
-                        },
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "term".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "list".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "term".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Nonterminal(
-                                    "literal".to_string(),
-                                )),
-                            ],
-                        },
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "<".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "rule_name".to_string(),
-                                )),
-                                OptTerm::obl(Term::Terminal(
-                                    ">".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "literal".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "\"".to_string(),
-                                )),
-                                OptTerm::obl(Term::Nonterminal(
-                                    "text".to_string(),
-                                )),
-                                OptTerm::obl(Term::Terminal(
-                                    "\"".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "text".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "TEXT".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-                Production {
-                    lhs: "rule_name".to_string(),
-                    rhs: vec![
-                        Expression {
-                            terms: vec![
-                                OptTerm::obl(Term::Terminal(
-                                    "WORD".to_string(),
-                                )),
-                            ],
-                        },
-                    ],
-                },
-            ],
-        };
-
-
-
-        println!("grammar: {:#?}", g);
-
-        let tokens = vec![
-            "<", "syntax", ">",    "::=", "<", "rule", ">", "|", "<", "rule", ">", "<", "syntax", ">",
-            "<", "rule", ">",      "::=", "\"", "<", "\"", "<", "rule_name", ">", "\"", ">", "\"", "::=", "<", "expr", ">", "<", "line_end", ">",
-            "<", "expr", ">",      "::=", "<", "list", ">", "|", "<", "list", ">", "\"", "|", "\"", "<", "expr", ">",
-            "<", "line_end", ">",  "::=", "\"", "\n", "\"", "|", "<", "line_end", ">", "<", "line_end", ">",
-            "<", "list", ">",      "::=", "<", "term", ">", "|", "<", "term", ">", "<", "list", ">",
-            "<", "term", ">",      "::=", "<", "literal", ">", "|", "\"", "<", "\"", "<", "rule_name", ">", "\"", ">", "\"",
-            "<", "literal", ">",   "::=", "\"", "\\\"", "\"", "<text>", "`",
-            "<", "text", ">",      "::=", "TEXT",
-            "<", "rule_name", ">", "::=", "WORD",
-        ];
-
-        let tokens: Vec<_> = tokens
-            .into_iter()
-            .map(|x| String::from(x))
-            .collect();
-
-
-        let ctx = make_ctx(&g2, &tokens, true, true);
-        let a = parse(ctx);
-
-        for a in a {
-            match a {
-                Ok(tree) => println!("{:#}", tree),
-                Err(err) => println!("{}", err),
-            }
-        }
-
-    }
-
 }
