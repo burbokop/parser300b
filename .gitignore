@@ -59,3 +59,13 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# Logs
+*.log
+*.ansi
+*.ans
+
+
+# NodeJs
+/node_modules
+package-lock.json

@@ -72,6 +72,17 @@ pub fn generate_combinations(begin: usize, end: usize, count: usize) -> Vec<Comb
 }
 
 
+struct Comb<T> {
+    values: Vec<T>
+}
+
+impl<T: Clone> Comb<T> {
+    fn clone_with(&self, v: T) -> Comb<T> {
+        let mut c = Comb { values: self.values.clone() };
+        c.values.push(v);
+        c
+    }
+}
 
 /// 1|2, 3|4, 5
 /// 
@@ -91,17 +102,7 @@ pub fn expand_combinations<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>>
 where
     T: Clone,
 {
-    struct Comb<T> {
-        values: Vec<T>
-    }
-
-    impl<T: Clone> Comb<T> {
-        fn clone_with(&self, v: T) -> Comb<T> {
-            let mut c = Comb { values: self.values.clone() };
-            c.values.push(v);
-            c
-        }
-    }
+    
 
     let mut deq: VecDeque<Comb<T>> = VecDeque::new();
 
@@ -190,13 +191,129 @@ where
     }
 }
 
+trait Iterator2d : Iterator {
+    fn next_line(&mut self) -> bool;
+}
+
+struct ExpandCombinationsOuterIter2d<T, II, OI> 
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>
+{
+    input: OI,
+    cache: Vec<II>,
+    line: usize,
+    idx: usize,
+    deq: VecDeque<Comb<T>>,
+    first: bool
+}
+
+impl<T, II, OI> ExpandCombinationsOuterIter2d<T, II, OI> 
+where
+    II: Iterator<Item = T>,
+    OI: Iterator<Item = II>
+{
+    fn new(input: OI) -> Self {
+        Self { input: input, cache: Vec::new(), line: 0, idx: 0, deq: VecDeque::new(), first: true }
+    }
+}
+
+
+impl<T, II, OI> Iterator for ExpandCombinationsOuterIter2d<T, II, OI> 
+where
+    II: Iterator<Item = T> + Clone,
+    OI: Iterator<Item = II>
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.first {
+            if let Some(inner) = self.input.next() {
+                self.cache.push(inner); // 1|2
+
+                for v in self.cache[0].clone() {
+                    //self.deq.push_back(vec![ v ]);
+                }
+            } else {
+                return None
+            }
+            self.first = false;
+        } else {
+            if let Some(front) = self.deq.pop_front() {
+                if front.values.len() < self.cache.len() {
+                    for to_append in self.cache[front.values.len()].clone() {
+                        //self.deq.push_back(front.clone_with(to_append))
+                    }            
+                } else {
+                    self.deq.push_front(front);
+                    return None
+                }
+            }
+        }
+        if let Some(front) = self.deq.front() {
+            //front.
+        }
+        None
+
+        //if let Some(inner) = self.input.next() {
+        //    self.cache.push(inner); // 1|2
+//
+        //    //let a = inner.next();
+//
+        //}
+//
+        //for v in input[0].clone() {
+        //    deq.push_back(Comb { values: vec![ v ] });
+        //}
+//
+        //if self.idx < self.cache.len() {
+        //    let res = self.cache[self.idx].next();
+        //    //self.deq.push_back(value)
+        //    self.idx += 1;
+        //    res
+        //} else {
+        //    self.idx = 0;
+        //    None
+        //}
+    }
+}
+
+impl<T, II, OI> Iterator2d for ExpandCombinationsOuterIter2d<T, II, OI> 
+where
+    II: Iterator<Item = T> + Clone,
+    OI: Iterator<Item = II>
+{
+    fn next_line(&mut self) -> bool {
+        self.line += 1;
+        self.line < 3
+    }
+}
+
+/// 1|2, 3|4, 5
+/// 
+/// eval seq:
+/// 0 -> 1, 3, 5
+/// 1 -> 1, 3, 5, 4
+/// 2 -> 1, 3, 5, 4, 2
+/// 3 -> 1, 3, 5, 4, 2
+/// 
+/// 
+/// (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
 
 pub fn expand_combinations_iter<T: Clone>(input: impl Iterator<Item = impl Iterator<Item = T>>) -> impl Iterator<Item = impl Iterator<Item = T>> {
-    let r = expand_combinations(input.map(|x| x.collect::<Vec<_>>()).collect::<Vec<_>>())
-        .into_iter()
-        .map(|x|x.into_iter());
-    r
-    //ExpandCombinationsOuterIter { input: input }
+    if true {
+        let r = expand_combinations(input.map(|x| x.collect::<Vec<_>>()).collect::<Vec<_>>())
+            .into_iter()
+            .map(|x|x.into_iter());
+        r
+    } else {
+        todo!()
+        //ExpandCombinationsOuterIter { input: input }
+    }
+}
+
+pub fn expand_combinations_iter2d<T: Clone>(input: impl Iterator<Item = impl Iterator<Item = T> + Clone>) -> impl Iterator2d<Item = T> {
+    ExpandCombinationsOuterIter2d::new(input)
 }
 
 
@@ -265,6 +382,18 @@ mod tests {
     }
 
     #[test]
+    fn generate_combinations_test() {
+        let a = generate_combinations(2, 6, 3);
+
+        println!("a: {:?}", a);
+
+        assert_eq!(
+            generate_combinations(2, 4, 3),
+            vec![]
+        )
+    }
+
+    #[test]
     fn generate_combinations_invalid_test() {
         assert_eq!(
             generate_combinations(2, 4, 3),
@@ -284,6 +413,62 @@ mod tests {
                 vec![ 3, 4 ],
                 vec![ 5 ],
             ]),
+            vec![
+                vec![ 1, 3, 5 ],
+                vec![ 1, 4, 5 ],
+                vec![ 2, 3, 5 ],
+                vec![ 2, 4, 5 ],
+            ]
+        );
+    }
+
+    #[test]
+    fn expand_combinations_iter_test() {
+        // 1|2, 3|4, 5
+
+        // (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
+
+        assert_eq!(
+            expand_combinations_iter(vec![
+                vec![ 1, 2 ].into_iter(),
+                vec![ 3, 4 ].into_iter(),
+                vec![ 5 ].into_iter(),
+            ].into_iter())
+                .map(|v|v.collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            vec![
+                vec![ 1, 3, 5 ],
+                vec![ 1, 4, 5 ],
+                vec![ 2, 3, 5 ],
+                vec![ 2, 4, 5 ],
+            ]
+        );
+    }
+
+    fn collect2d<T>(mut iter: impl Iterator2d<Item = T>) -> Vec<Vec<T>> {
+        let mut res: Vec<Vec<T>> = Vec::new();
+        while iter.next_line() {
+            let mut line: Vec<T> = Vec::new();
+            while let Some(v) = iter.next() {
+                line.push(v)
+            }
+            res.push(line)
+        }
+        res
+    }
+
+    #[test]
+    fn expand_combinations_iter2d_test() {
+        // 1|2, 3|4, 5
+
+        // (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
+
+        assert_eq!(
+            collect2d(expand_combinations_iter2d(vec![
+                vec![ 1, 2 ].into_iter(),
+                vec![ 3, 4 ].into_iter(),
+                vec![ 5 ].into_iter(),
+            ].into_iter())),
             vec![
                 vec![ 1, 3, 5 ],
                 vec![ 1, 4, 5 ],

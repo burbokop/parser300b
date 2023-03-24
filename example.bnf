@@ -1,0 +1,33 @@
+
+<block> ::= 
+	<stmt> ";" | 
+    <stmt> ";" <block>    
+<namespace> ::= "namespace" "{" <block>? "}"
+<subs> ::= <lhs> "=" <postfix_rhs>
+<lhs> ::= <id> | "exp" | "_"
+<id> ::= [a-z]+
+<postfix_rhs> ::= <rhs> | <postfix_rhs> "." <id>
+<rhs> ::= 
+    <namespace> | 
+    <type_rhs> | 
+    <literal> | 
+    <subs> | 
+    <obj> | 
+    <func_rhs> | 
+    <call>
+<stmt> ::= <subs> | "stmt"
+<class_decl> ::= "class" "(" <decl_arg_list>? ")" "{" <block>? "}"
+<arg_list> ::= <arg> | <arg_list> "," <arg>
+<arg> ::= <postfix_rhs>
+<decl_arg_list> ::= <decl_arg> | <decl_arg_list> "," <decl_arg>
+<decl_arg> ::= <id> " " <type_rhs>
+<type_rhs> ::= <primitive_type> | <id> | <class_decl>
+<primitive_type> ::= "int" | "float"
+<obj> ::= <type_rhs> "(" <arg_list>? ")"
+<func_decl> ::= "(" <decl_arg_list>? ")" "{" <block>? "}"
+<func_rhs> ::= <id> | <func_decl>
+<call> ::= <func_rhs> "(" <arg_list>? ")"
+<literal> ::= "\"" [a-z]* "\"" | [0-9]+
+
+
+

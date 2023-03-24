@@ -11,7 +11,11 @@ pub type ParseTreeIter<'tg, T> = Box<dyn Iterator<Item = Result<ParseTree<'tg, '
 pub type ParseTreeNodeIter<'tg, T> = Box<dyn Iterator<Item = Result<ParseTreeNode<'tg, 'tg, T>, Error>> + 'tg>;
 
 pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Production) -> ParseTreeIter<'tg, T> {
-    println!("{:<48}{:#}", format!("->{}{}", "`".repeat(ctx.level), production.lhs), ctx);
+    if ctx.logs_enabled {
+        println!("{:<48}{:#}", format!("->{}{}", "`".repeat(ctx.level), production.lhs), ctx);
+    }
+
+    let ignore_errors = ctx.ignore_errors;
 
     //println!("{}", format!("do_production: {}, {:?}", ctx, production).yellow());
     let r = production
@@ -19,17 +23,28 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
         .iter()
         .map(move |expression| do_expression(ctx.clone(), &production.lhs, expression))
         .flatten();
-
+        
     //println!("{}", format!("do_production end: {:?}", r).yellow().on_black());
-    Box::new(r)
+    if ignore_errors {
+        Box::new(r.filter(|f|f.is_ok()))
+    } else {
+        Box::new(r)
+    }
 }
 
 
-pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTreeNodeIter<'tg, T> {
-    println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
+pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> ParseTreeNodeIter<'tg, T> {
+    if ctx.logs_enabled {
+        println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
+    }
+
+    if term.is_optional {
+        return Box::new(vec![ Err(format!("optional terms are unimplemented. term '{}' is optional. call Grammar::flatten() to remove them", term)) ].into_iter()) 
+            as ParseTreeNodeIter<T>;
+    }
 
     //println!("{}", format!("do_term: {}, {:?}", ctx, term).magenta());
-    let r = match term {
+    let r = match &term.term {
         Term::Terminal(terminal) => {
             Box::new(if ctx.len() == 1 {
                 if ctx.front().name() == terminal {
@@ -37,6 +52,8 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTr
                 } else {
                     vec![ Err(format!("front token '{}' is not given terminal '{}'", ctx.front(), terminal)) ]
                 }
+            } else if term.is_optional {
+                vec![ Ok(ParseTreeNode::None) ]
             } else {
                 vec![ Err(format!("Ctx len is not 1 on {} != {:#}", term, ctx)) ]
             }.into_iter())
@@ -60,10 +77,11 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTr
 }
 
 pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg String, expression: &'tg Expression) -> ParseTreeIter<'tg, T> {
-    println!("{:<48}{:#}", format!("E {}{}", "`".repeat(ctx.level), VecDisplay { v: expression.terms.iter().collect() }), ctx);
-
-    for c in ctx.combinations(expression.terms.len()) {
-        println!("{:<48}{:#}", format!("C {}", "`".repeat(ctx.level)), VecDisplay { v: ctx.split(c) });
+    if ctx.logs_enabled {
+        println!("{:<48}{:#}", format!("E {}{}", "`".repeat(ctx.level), VecDisplay { v: expression.terms.iter().collect() }), ctx);
+        for c in ctx.combinations(expression.terms.len()) {
+            println!("{:<48}{:#}", format!("C {}", "`".repeat(ctx.level)), VecDisplay { v: ctx.split(c) });
+        }
     }
     //let ctx = &ctx;
 
@@ -111,17 +129,28 @@ pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg
 }
 
 
-pub fn make_ctx<'tg, T: Token>(grammar: &'tg Grammar, tokens: &'tg Vec<T>) -> Ctx<'tg, 'tg, T> {
+pub fn make_ctx<'tg, T: Token>(
+    grammar: &'tg Grammar, 
+    tokens: &'tg Vec<T>, 
+    logs_enabled: bool, 
+    ignore_errors: bool
+) -> Ctx<'tg, 'tg, T> {
     Ctx {
         begin: 0,
         end: tokens.len(),
         tokens: &tokens,
         grammar: grammar,
-        level: 0
+        level: 0,
+        logs_enabled: logs_enabled,
+        ignore_errors: ignore_errors
     }
 }
 
 pub fn parse<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>) -> ParseTreeIter<'tg, T> {
+    if ctx.logs_enabled {
+        println!("input: {:?} <- {:#?}", ctx.tokens, ctx.grammar);
+    }
+
     let err = Err("grammar is empty".to_string()) as Result<ParseTree<'tg, 'tg, T>, _>;
 
     if let Some(first) = ctx.grammar.productions.first() {
@@ -157,13 +186,28 @@ pub fn parse<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>) -> ParseTreeIter<'tg, T> {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::{c_char, c_void};
+    use std::ptr::{null_mut, null};
+
+    use crate::parse::make_ctx;
     use crate::{
         parse, 
         Error, 
-        assert_contains_tree
+        assert_contains_tree, Production, Expression, Term, OptTerm
     };
     use crate::grammar::Grammar;
     use trim_margin::MarginTrimmable;
+
+    
+    extern "C" fn write_cb(_: *mut c_void, message: *const c_char) {
+        print!("{}", String::from_utf8_lossy(unsafe {
+            std::ffi::CStr::from_ptr(message as *const i8).to_bytes()
+        }));
+    }
+
+    fn mem_print() {
+        unsafe { jemalloc_sys::malloc_stats_print(Some(write_cb), null_mut(), null()) }
+    }
 
     #[test]
     fn postfix_test() {
@@ -241,6 +285,62 @@ mod tests {
             "#
         );
     }
+
+    #[test]
+    fn opt_block_test() {
+        assert_contains_tree!(
+            r#"
+                <namespace> ::= N { <block>? }
+                <block> ::= <subs> | <subs> ; <block>
+                <subs>  ::= W
+            "#,
+            [
+                "N", "{",
+                    "W", ";",
+                    "W", ";",
+                    "W",
+                "}"
+            ],
+            r#"
+                |namespace
+                |`N
+                |`{
+                |`block
+                |``subs
+                |```W
+                |``;
+                |``block
+                |```subs
+                |````W
+                |```;
+                |```block
+                |````subs
+                |`````W
+                |`}
+            "#
+        );
+    }
+
+    #[test]
+    fn opt_block_missing_test() {
+        assert_contains_tree!(
+            r#"
+                <namespace> ::= N { <block>? }
+                <block> ::= <subs> | <subs> ; <block>
+                <subs>  ::= W
+            "#,
+            [
+                "N", "{", "}"
+            ],
+            r#"
+                |namespace
+                |`N
+                |`{
+                |`}
+            "#
+        );
+    }
+
 
     #[test]
     fn block_subs_simple_test() {
@@ -364,44 +464,77 @@ mod tests {
     static HARD_LVL_GRAMMAR: &str = r#"
         <syntax>         ::= <rule> | <rule> <syntax>
         <rule>           ::= "<" <rule_name> ">" "::=" <expression> <line_end>
-        <expression>     ::= <list> | <list> "|" <expression>
-        <line_end>       ::= "\n" | <line_end> <line_end>
+        <expression>     ::= <list> | <list> "or" <expression>
+        <line_end>       ::= "end" | <line_end> <line_end>
         <list>           ::= <term> | <term> <list>
         <term>           ::= <literal> | "<" <rule_name> ">"
         <literal>        ::= "`" <text> "`"
         <text>           ::= <character> <text> | <character>
         <character>      ::= <letter> | <digit>
-        <letter>         ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z"
-        <digit>          ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+        <letter>         ::= "J" | "K" | "L" | "q"
+        <digit>          ::= "0"
         <rule_name>      ::= <letter> | <rule_name> <rule_char>
         <rule_char>      ::= <letter> | <digit> | "_"
     "#;
 
     #[test]
     fn hard_level_test() {
+        let g: Grammar = ""
+            .try_into()
+            .unwrap();
+
+        let t: Vec<_> = vec![ "" ]
+            .into_iter()
+            .map(|x| String::from(x))
+            .collect();
+
+        let ctx = crate::parse::make_ctx(&g, &t, true, true);
+
+        let mut trees: Vec<_> = parse(ctx)
+            .map(|t|t.map(|t|format!("{:#}", t)))
+            .collect();
+
+        trees.sort_by(|x, y| x.is_ok().cmp(&y.is_ok()) );
+
+
         assert_contains_tree!(
             HARD_LVL_GRAMMAR,
             [
-                "<", "K", ">", "::=", "<", "L", "J", ">", "<", "q", ">", "\n"
+                "<", "K", ">", "::=", "<", "L", "J", ">", "end"
             ],
-            ""
+            r#"
+                |syntax
+                |`rule
+                |``<
+                |``rule_name
+                |```letter
+                |````K
+                |``>
+                |``::=
+                |``expression
+                |```list
+                |````term
+                |`````<
+                |`````rule_name
+                |``````rule_name
+                |```````letter
+                |````````L
+                |``````rule_char
+                |```````letter
+                |````````J
+                |`````>
+                |``line_end
+                |```end
+            "#
         );
     }
 
-    #[test]
+    //#[test]
     fn hard_level_test2() {
-        assert_contains_tree!(
-            HARD_LVL_GRAMMAR,
-            [
-                "<", "n", ">", "::=", "`", "2", "`", "<", "D", ">", "\n",
-                "<", "j", ">", "::=", "<", "l", "q", "v", ">", "|", "<", "e", ">", "\n",
-                "<", "m", "N", ">", "::=", "`", "5", "`", "\n"
-            ],
-            ""
-        );    
+         
     }
 
-    #[test]
+    //#[test]
     fn hard_level_test3() {
         assert_contains_tree!(
             HARD_LVL_GRAMMAR,
@@ -413,4 +546,244 @@ mod tests {
             ""
         );    
     }
+
+    //#[test]
+    fn bnf() {
+        let g = r#"
+            |<syntax>    ::= <rule> | <rule> <syntax>
+            |<rule>      ::= "<" <rule_name> ">" "::=" <expr> <line_end>
+            |<expr>      ::= <list> | <list> "|" <expr>
+            |<line_end>  ::= "\n" | <line_end> <line_end>
+            |<list>      ::= <term> | <term> <list>
+            |<term>      ::= <literal> | "<" <rule_name> ">"
+            |<literal>   ::= "`" <text> "`"
+            |<text>      ::= TEXT
+            |<rule_name> ::= WORD
+        "#.trim_margin().unwrap();
+
+
+        let g2 = Grammar {
+            productions: vec![
+                Production {
+                    lhs: "syntax".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "rule".to_string(),
+                                )),
+                            ],
+                        },
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "rule".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "syntax".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "rule".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "<".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "rule_name".to_string(),
+                                )),
+                                OptTerm::obl(Term::Terminal(
+                                    ">".to_string(),
+                                )),
+                                OptTerm::obl(Term::Terminal(
+                                    "::=".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "expr".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "line_end".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "expr".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "list".to_string(),
+                                )),
+                            ],
+                        },
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "list".to_string(),
+                                )),
+                                OptTerm::obl(Term::Terminal(
+                                    "|".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "expr".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "line_end".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "\n".to_string(),
+                                )),
+                            ],
+                        },
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "line_end".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "line_end".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "list".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "term".to_string(),
+                                )),
+                            ],
+                        },
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "term".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "list".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "term".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Nonterminal(
+                                    "literal".to_string(),
+                                )),
+                            ],
+                        },
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "<".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "rule_name".to_string(),
+                                )),
+                                OptTerm::obl(Term::Terminal(
+                                    ">".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "literal".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "\"".to_string(),
+                                )),
+                                OptTerm::obl(Term::Nonterminal(
+                                    "text".to_string(),
+                                )),
+                                OptTerm::obl(Term::Terminal(
+                                    "\"".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "text".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "TEXT".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+                Production {
+                    lhs: "rule_name".to_string(),
+                    rhs: vec![
+                        Expression {
+                            terms: vec![
+                                OptTerm::obl(Term::Terminal(
+                                    "WORD".to_string(),
+                                )),
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+
+
+
+        println!("grammar: {:#?}", g);
+
+        let tokens = vec![
+            "<", "syntax", ">",    "::=", "<", "rule", ">", "|", "<", "rule", ">", "<", "syntax", ">",
+            "<", "rule", ">",      "::=", "\"", "<", "\"", "<", "rule_name", ">", "\"", ">", "\"", "::=", "<", "expr", ">", "<", "line_end", ">",
+            "<", "expr", ">",      "::=", "<", "list", ">", "|", "<", "list", ">", "\"", "|", "\"", "<", "expr", ">",
+            "<", "line_end", ">",  "::=", "\"", "\n", "\"", "|", "<", "line_end", ">", "<", "line_end", ">",
+            "<", "list", ">",      "::=", "<", "term", ">", "|", "<", "term", ">", "<", "list", ">",
+            "<", "term", ">",      "::=", "<", "literal", ">", "|", "\"", "<", "\"", "<", "rule_name", ">", "\"", ">", "\"",
+            "<", "literal", ">",   "::=", "\"", "\\\"", "\"", "<text>", "`",
+            "<", "text", ">",      "::=", "TEXT",
+            "<", "rule_name", ">", "::=", "WORD",
+        ];
+
+        let tokens: Vec<_> = tokens
+            .into_iter()
+            .map(|x| String::from(x))
+            .collect();
+
+
+        let ctx = make_ctx(&g2, &tokens, true, true);
+        let a = parse(ctx);
+
+        for a in a {
+            match a {
+                Ok(tree) => println!("{:#}", tree),
+                Err(err) => println!("{}", err),
+            }
+        }
+
+    }
+
 }

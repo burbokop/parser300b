@@ -10,3 +10,5 @@ crate-type   = [ "rlib", "cdylib" ]
 [dependencies]
 colored = "2.0.0"
 trim-margin = "0.1.0"
+jemallocator = "0.5"
+jemalloc-sys = {version = "0.5", features = ["stats"]}

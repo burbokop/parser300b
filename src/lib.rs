@@ -2,6 +2,7 @@
 #![feature(allow_internal_unstable)]
 #![feature(core_panic)]
 
+//mod iterator2d;
 mod assert;
 mod grammar;
 mod tree;
@@ -15,7 +16,11 @@ pub use tree::*;
 
 pub use parse::{
     parse,
+    make_ctx,
     Error
 };
 
 pub use ffi::*;
+
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;

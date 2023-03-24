@@ -9,6 +9,7 @@ where
 {
     Terminal(&'t T),
     Nonterminal(ParseTree<'t, 'g, T>),
+    None
 }
 
 #[derive(PartialEq, Debug, Clone, Eq)]
@@ -29,6 +30,7 @@ fn format_node<T: Display>(tree: &ParseTreeNode<T>, f: &mut std::fmt::Formatter<
         ParseTreeNode::Nonterminal(nonterminal) => {
             format_tree(nonterminal, f, level)?;
         },
+        ParseTreeNode::None => {}
     }
     Ok(())
 }

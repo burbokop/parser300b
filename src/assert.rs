@@ -1,18 +1,19 @@
 
-#[warn(dead_code)]
-pub fn add_margins(s: &str, level: usize) -> String {
-    let tab = "\t".repeat(level);
-    s
-        .lines()
-        .map(|s| tab.clone() + "|" + s)
-        .collect::<Vec<_>>()
-        .join("\n")
-}
 
 #[macro_export]
 #[allow_internal_unstable(core_panic)]
 macro_rules! assert_contains_tree {
     ($grammar:expr, $tokens:expr, $expected_tree:expr) => {
+
+        pub fn add_margins(s: &str, level: usize) -> String {
+            let tab = "\t".repeat(level);
+            s
+                .lines()
+                .map(|s| tab.clone() + "|" + s)
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
+        
 
         let grammar_str: &str = $grammar;
         let tokens_slice: &[&str] = &$tokens;
@@ -22,18 +23,22 @@ macro_rules! assert_contains_tree {
             .try_into()
             .unwrap();
 
+        let g = g.flatten();
+
         let t: Vec<_> = tokens_slice
             .into_iter()
             .map(|x| String::from(*x))
             .collect();
 
-        let ctx = crate::parse::make_ctx(&g, &t);
+        let ctx = make_ctx(&g, &t, false, true);
 
-        let trees: Vec<_> = parse(ctx)
+        let mut trees: Vec<_> = parse(ctx)
             .into_iter()
             .map(|t|t.map(|t|format!("{:#}", t)))
             .collect();
         
+        trees.sort_by(|x, y| x.is_ok().cmp(&y.is_ok()) );
+
         let expected: Result<String, Error> = Ok(String::from(expected_tree_str.trim_margin().unwrap()) + "\n");
 
         let mut found = false;
@@ -47,7 +52,7 @@ macro_rules! assert_contains_tree {
         if !found {
             let left_variants = trees.iter().map(|l| {
                 match l {
-                    Ok(tree) => format!("\ttree:\n{:#}\n", crate::assert::add_margins(tree, 2)),
+                    Ok(tree) => format!("\ttree:\n{:#}\n", add_margins(tree, 2)),
                     Err(err) => format!("\tfail: '{}'\n", err)
                 }
             })
@@ -58,7 +63,7 @@ macro_rules! assert_contains_tree {
 
             match expected {
                 Ok(tree) => panic!("assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\ttree:\n{:#}\n{}\n", 
-                    separator, left_variants, crate::assert::add_margins(&tree, 2), separator),
+                    separator, left_variants, add_margins(&tree, 2), separator),
                 Err(err) => panic!("assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\tfail: '{:#}'\n{}\n", 
                     separator, left_variants, err, separator)
             }

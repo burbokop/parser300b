@@ -1,6 +1,6 @@
 use std::{ffi::{c_char, CStr, c_void}, str::Utf8Error, slice, fmt::Display};
 
-use crate::{Term, Expression, Production, Grammar, ctx::Token};
+use crate::{Term, Expression, Production, Grammar, ctx::Token, OptTerm};
 
 
 
@@ -8,15 +8,16 @@ use crate::{Term, Expression, Production, Grammar, ctx::Token};
 pub struct parser300b_Term {
     pub value: *const c_char,
     pub is_terminal: bool,
+    pub is_optional: bool
 }
 
 impl parser300b_Term {
-    pub unsafe fn to_non_c(&self) -> Result<Term, Utf8Error> {
+    pub unsafe fn to_non_c(&self) -> Result<OptTerm, Utf8Error> {
         let value = CStr::from_ptr(self.value).to_str()?;
         if self.is_terminal {
-            Ok(Term::Terminal(value.to_string()))
+            Ok(OptTerm { term: Term::Terminal(value.to_string()), is_optional: self.is_optional })
         } else {
-            Ok(Term::Nonterminal(value.to_string()))
+            Ok(OptTerm { term: Term::Nonterminal(value.to_string()), is_optional: self.is_optional })
         }
     }
 }
@@ -88,8 +89,8 @@ impl parser300b_Token {
 
 #[derive(Debug, Clone)]
 struct CToken<'n> {
-    name: &'n str,
-    data: *const c_void
+    pub name: &'n str,
+    pub data: *const c_void
 }
 
 impl<'n> Display for CToken<'n> {

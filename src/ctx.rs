@@ -21,7 +21,9 @@ pub struct Ctx<'t, 'g, T> {
     pub end: usize,
     pub tokens: &'t Vec<T>,
     pub grammar: &'g Grammar,
-    pub level: usize
+    pub level: usize,
+    pub logs_enabled: bool,
+    pub ignore_errors: bool
 }
 
 impl<'t, 'g, T> Ctx<'t, 'g, T> {
@@ -31,17 +33,21 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
             end: self.end, 
             tokens: self.tokens, 
             grammar: self.grammar, 
-            level: self.level + 1 
+            level: self.level + 1,
+            logs_enabled: self.logs_enabled,
+            ignore_errors: self.ignore_errors
         }
     }
 
     pub fn at(&self, range: Range<usize>) -> Ctx<'t, 'g, T> {
         Ctx { 
-            begin: range.start, 
-            end: range.end, 
-            tokens: self.tokens, 
-            grammar: self.grammar, 
-            level: self.level 
+            begin: range.start,
+            end: range.end,
+            tokens: self.tokens,
+            grammar: self.grammar,
+            level: self.level,
+            logs_enabled: self.logs_enabled,
+            ignore_errors: self.ignore_errors
         }
     }
 
@@ -55,7 +61,9 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                     end: combination.marks[0],
                     tokens: self.tokens,
                     grammar: self.grammar,
-                    level: self.level
+                    level: self.level,
+                    logs_enabled: self.logs_enabled,
+                    ignore_errors: self.ignore_errors
                 })
             }
         } else {
@@ -64,7 +72,9 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                 end: self.end,
                 tokens: self.tokens,
                 grammar: self.grammar,
-                level: self.level
+                level: self.level,
+                logs_enabled: self.logs_enabled,
+                ignore_errors: self.ignore_errors
             })
         }
 
@@ -76,16 +86,20 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                     end: combination.marks[i + 1],
                     tokens: self.tokens,
                     grammar: self.grammar,
-                    level: self.level
-                })                
+                    level: self.level,
+                    logs_enabled: self.logs_enabled,
+                    ignore_errors: self.ignore_errors
+                })
             } else if combination.marks[i] < self.end {
                 result.push(Ctx {
                     begin: combination.marks[i],
                     end: self.end,
                     tokens: self.tokens,
                     grammar: self.grammar,
-                    level: self.level
-                })                
+                    level: self.level,
+                    logs_enabled: self.logs_enabled,
+                    ignore_errors: self.ignore_errors
+                })
             }
         }
         result
@@ -179,7 +193,7 @@ mod tests {
     fn split_ctx_test() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0 };
+        let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
 
         let combinations: Vec<_> = ctx
             .combinations(3)
@@ -232,7 +246,7 @@ mod tests {
     fn split_ctx_test2() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0 };
+        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
 
         let combinations: Vec<_> = ctx
             .combinations(4)
@@ -271,7 +285,7 @@ mod tests {
     fn split_ctx_into_same_test() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0 };
+        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
 
         let combinations: Vec<_> = ctx
             .combinations(1)
