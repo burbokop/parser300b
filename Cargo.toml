@@ -11,4 +11,7 @@ crate-type   = [ "rlib", "cdylib" ]
 colored = "2.0.0"
 trim-margin = "0.1.0"
 jemallocator = "0.5"
-jemalloc-sys = {version = "0.5", features = ["stats"]}
+jemalloc-sys = { version = "0.5", features = ["stats"] }
+serde = { version = "1.0.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0.0"

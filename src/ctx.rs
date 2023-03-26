@@ -1,7 +1,9 @@
 use std::fmt::Display;
 use std::fmt::Debug;
+use std::mem::MaybeUninit;
 use std::ops::Range;
 
+use crate::Production;
 use crate::{combination::*, grammar::Grammar};
 
 
@@ -16,6 +18,62 @@ impl Token for String {
 }
 
 #[derive(Clone, Copy)]
+pub(crate) struct Arr<T> {
+    arr: [T; 128],
+    len: usize
+}
+
+impl<T> Default for Arr<T> {
+    fn default() -> Self {
+        Self { 
+            arr: unsafe { MaybeUninit::uninit().assume_init() }, 
+            len: 0 
+        }
+    }
+}
+
+impl<T> Arr<T> {
+    pub fn with(mut self, v: T) -> Result<Self, String> {
+        if self.len < 128 {
+            self.arr[self.len] = v;
+            self.len += 1;
+            Ok(self)
+        } else {
+            Err("max capacity exceeded".to_string())
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn back(&self) -> Option<&T> {
+        if self.len > 0 {
+            Some(&self.arr[self.len])
+        } else {
+            None
+        }
+    } 
+    pub fn head(&self) -> &[T] {
+        if self.len > 0 {
+            &self.arr[0..self.len - 1]
+        } else {
+            &[]
+        }
+    } 
+}
+
+impl<'g> Display for Arr<&'g Production> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg_list = f.debug_list();
+        for i in 0..self.len {
+            dbg_list.entry(&self.arr[i].lhs);
+        }
+        dbg_list.finish()
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Ctx<'t, 'g, T> {
     pub begin: usize,
     pub end: usize,
@@ -23,11 +81,17 @@ pub struct Ctx<'t, 'g, T> {
     pub grammar: &'g Grammar,
     pub level: usize,
     pub logs_enabled: bool,
-    pub ignore_errors: bool
+    pub ignore_errors: bool,
+    pub(crate) prod_stack: Arr<&'g Production> // needed to avoid production recursion
 }
 
 impl<'t, 'g, T> Ctx<'t, 'g, T> {
-    pub fn next_level(&self) -> Ctx<'t, 'g, T> {
+    pub fn reset_stack(mut self) -> Self {
+        self.prod_stack = Default::default();
+        self
+    }
+    
+    pub fn next_level(&self, production: &'g Production) -> Ctx<'t, 'g, T> {
         Ctx {
             begin: self.begin, 
             end: self.end, 
@@ -35,7 +99,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
             grammar: self.grammar, 
             level: self.level + 1,
             logs_enabled: self.logs_enabled,
-            ignore_errors: self.ignore_errors
+            ignore_errors: self.ignore_errors,
+            prod_stack: self.prod_stack.with(production).unwrap()
         }
     }
 
@@ -47,7 +112,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
             grammar: self.grammar,
             level: self.level,
             logs_enabled: self.logs_enabled,
-            ignore_errors: self.ignore_errors
+            ignore_errors: self.ignore_errors,
+            prod_stack: self.prod_stack
         }
     }
 
@@ -63,7 +129,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                     grammar: self.grammar,
                     level: self.level,
                     logs_enabled: self.logs_enabled,
-                    ignore_errors: self.ignore_errors
+                    ignore_errors: self.ignore_errors,
+                    prod_stack: self.prod_stack
                 })
             }
         } else {
@@ -74,7 +141,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                 grammar: self.grammar,
                 level: self.level,
                 logs_enabled: self.logs_enabled,
-                ignore_errors: self.ignore_errors
+                ignore_errors: self.ignore_errors,
+                prod_stack: self.prod_stack
             })
         }
 
@@ -88,7 +156,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                     grammar: self.grammar,
                     level: self.level,
                     logs_enabled: self.logs_enabled,
-                    ignore_errors: self.ignore_errors
+                    ignore_errors: self.ignore_errors,
+                    prod_stack: self.prod_stack
                 })
             } else if combination.marks[i] < self.end {
                 result.push(Ctx {
@@ -98,7 +167,8 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
                     grammar: self.grammar,
                     level: self.level,
                     logs_enabled: self.logs_enabled,
-                    ignore_errors: self.ignore_errors
+                    ignore_errors: self.ignore_errors,
+                    prod_stack: self.prod_stack
                 })
             }
         }
@@ -192,7 +262,7 @@ mod tests {
     fn split_ctx_test() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
+        let ctx = Ctx { begin: 4, end: 9, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false, prod_stack: Default::default() };
 
         let combinations: Vec<_> = ctx
             .combinations(3)
@@ -245,7 +315,7 @@ mod tests {
     fn split_ctx_test2() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
+        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false, prod_stack: Default::default() };
 
         let combinations: Vec<_> = ctx
             .combinations(4)
@@ -284,7 +354,7 @@ mod tests {
     fn split_ctx_into_same_test() {
         let tokens: Vec<String> = Vec::new();
         let grammar = Grammar { productions: vec![] };
-        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false };
+        let ctx = Ctx { begin: 0, end: 7, tokens: &tokens, grammar: &grammar, level: 0, logs_enabled: true, ignore_errors: false, prod_stack: Default::default() };
 
         let combinations: Vec<_> = ctx
             .combinations(1)

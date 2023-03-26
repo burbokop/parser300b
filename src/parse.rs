@@ -13,6 +13,12 @@ pub type ParseTreeNodeIter<'tg, T> = Box<dyn Iterator<Item = Result<ParseTreeNod
 pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Production) -> ParseTreeIter<'tg, T> {
     if ctx.logs_enabled {
         println!("{:<48}{:#}", format!("->{}{}", "`".repeat(ctx.level), production.lhs), ctx);
+        println!("{:<48}{:#}", format!("ss{}{}", "`".repeat(ctx.level), &ctx.prod_stack), ctx);
+    }
+    
+    if ctx.prod_stack.head().iter().find(|p| p.lhs == production.lhs).is_some() {
+        return Box::new(vec![ Err(format!("production recursion '{}'", &production.lhs)) ].into_iter()) 
+            as ParseTreeIter<T>;
     }
 
     let ignore_errors = ctx.ignore_errors;
@@ -34,8 +40,7 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
 
 
 pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> ParseTreeNodeIter<'tg, T> {
-    println!("l: {}", ctx.level);
-    if ctx.level > 200 {
+    if ctx.level >= 128 {
         return Box::new(vec![ Err(format!("max level reached")) ].into_iter()) 
             as ParseTreeNodeIter<T>;
     }
@@ -58,8 +63,6 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> Pars
                 } else {
                     vec![ Err(format!("front token '{}' is not given terminal '{}'", ctx.front(), terminal)) ]
                 }
-            } else if term.is_optional {
-                vec![ Ok(ParseTreeNode::None) ]
             } else {
                 vec![ Err(format!("Ctx len is not 1 on {} != {:#}", term, ctx)) ]
             }.into_iter())
@@ -67,7 +70,7 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> Pars
         Term::Nonterminal(nonterminal) => {
             if let Some(p) = ctx.grammar.productions.iter().find(|p| &p.lhs == nonterminal) {
                 Box::new(
-                    do_production(ctx.next_level(), p)
+                    do_production(ctx.next_level(p), p)
                         .map(|tree| 
                             tree.map(|tree| ParseTreeNode::Nonterminal(tree))
                         )
@@ -90,7 +93,11 @@ pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg
         }
     }
     //let ctx = &ctx;
-
+    let ctx = if expression.terms.len() > 1 {
+        ctx.reset_stack()
+    } else {
+        ctx
+    };
     //println!("{}", format!("do_expression: {}, '{}', {:?}", ctx, production_name, expression).blue());
     let r = ctx.combinations(expression.terms.len()).into_iter().map(move |combination|{
         //println!("{}", format!("\tcombination: {:?}, {}", combination, VecDisplay { v: ctx.split(combination.clone()) }).blue().italic());
@@ -148,7 +155,8 @@ pub fn make_ctx<'tg, T: Token>(
         grammar: grammar,
         level: 0,
         logs_enabled: logs_enabled,
-        ignore_errors: ignore_errors
+        ignore_errors: ignore_errors,
+        prod_stack: Default::default()
     }
 }
 
@@ -195,6 +203,8 @@ mod tests {
     use std::ffi::{c_char, c_void};
     use std::ptr::{null_mut, null};
 
+    use crate::assert::init_assert_contains_tree;
+
     use crate::parse::make_ctx;
     use crate::{
         parse, 
@@ -215,7 +225,7 @@ mod tests {
         unsafe { jemalloc_sys::malloc_stats_print(Some(write_cb), null_mut(), null()) }
     }
 
-    #[test]
+    //#[test]
     fn aaaa() {
         mem_print();
     }

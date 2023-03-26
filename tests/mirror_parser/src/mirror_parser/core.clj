@@ -2,13 +2,14 @@
 	(:require [clojure.string :as string] 
             [instaparse.core :as insta]
       		  [clojure.tools.cli :refer [parse-opts]]
-      		  [clj-yaml.core :as yaml]) 
+      		  [clj-yaml.core :as yaml]
+            [cheshire.core :as json]) 
     (:gen-class))
 
 (def cli-options
   [["-g" "--grammar [ebnf]" "Grammar"]
    ["-t" "--text [string]" "Text to parse"]
-   ["-f" "--format [yaml|dump=default]" "Output format"]
+   ["-f" "--format [yaml|json|dump=default]" "Output format"]
    ["-h" "--help"]])
 
 (def cli-err-code -2)
@@ -35,12 +36,18 @@
     (binding [*out* *err*] (println msg)))
   (System/exit status))
 
+(def my-pretty-printer (json/create-pretty-printer 
+                        (assoc json/default-pretty-print-options 
+                               :indent-arrays? true)))
+
 (defn process-result [result, fmt]
   (if (insta/failure? result)
     (exit text-parse-err-code result)
    	(cond
       (= fmt "yaml")
-      (exit 0 (yaml/generate-string result))
+      (exit 0 (yaml/generate-string result :dumper-options {:flow-style :block}))
+      (= fmt "json")
+      (exit 0 (json/generate-string result {:pretty my-pretty-printer}))
       :else
       (exit 0 result))))
 

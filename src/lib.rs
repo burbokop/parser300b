@@ -20,6 +20,8 @@ pub use parse::{
     Error
 };
 
+pub use assert::init_assert_contains_tree;
+
 pub use ffi::*;
 
 #[global_allocator]

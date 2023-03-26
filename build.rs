@@ -1,12 +1,6 @@
 use std::process::Command;
 
-
-
 fn main() {
-    let a: String = String::new();
-
-    a.as_str();
-
     let lein_result = Command::new("lein")
         .current_dir("tests/mirror_parser")
         .arg("uberjar")
