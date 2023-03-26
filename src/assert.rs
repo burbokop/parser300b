@@ -15,11 +15,32 @@ macro_rules! assert_contains_tree {
         }
         
 
-        let grammar_str: &str = $grammar;
+        let grammar_str: String = $grammar.trim_margin().unwrap_or($grammar.to_string());
         let tokens_slice: &[&str] = &$tokens;
         let expected_tree_str: &str = $expected_tree;
 
+        let mirror_result = std::process::Command::new("java")
+            .arg("-jar")
+            .arg("tests/mirror_parser/target/mirror_parser-TEST_ONLY-standalone.jar")
+            .arg("--grammar")
+            .arg(&grammar_str)
+            .arg("--text")
+            .arg(tokens_slice.join(""))
+            .arg("--format")
+            .arg("yaml")
+            .output()
+            .unwrap();
+
+        if mirror_result.status.success() {
+            let current_log_index = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+            std::fs::create_dir_all("logs/mirror").unwrap();
+            std::fs::write(format!("logs/mirror/{}.txt", current_log_index), String::from_utf8(mirror_result.stdout).unwrap()).unwrap();    
+        } else {
+            panic!("mirror parser failed with code {:?} and error '{}'", mirror_result.status.code(), String::from_utf8(mirror_result.stderr).unwrap());
+        }
+
         let g: Grammar = grammar_str
+            .as_str()
             .try_into()
             .unwrap();
 

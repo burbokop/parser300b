@@ -60,12 +60,27 @@ compile_commands.json
 
 *_qmlcache.qrc
 
+# NodeJs
+/node_modules
+package-lock.json
+
+# Clojure
+/target
+/tests/mirror_parser/target
+/classes
+/checkouts
+profiles.clj
+pom.xml
+pom.xml.asc
+*.jar
+*.class
+/.lein-*
+/.nrepl-port
+.clj-kondo/
+.lsp/
+
 # Logs
 *.log
 *.ansi
 *.ans
-
-
-# NodeJs
-/node_modules
-package-lock.json
+/logs

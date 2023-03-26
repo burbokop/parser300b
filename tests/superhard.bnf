@@ -1,0 +1,32 @@
+<block> ::= <stmt> ";" | <stmt> ";" <block>
+<namespace> ::= "namespace" "{" <block>? "}"
+<subs> ::= <lhs> "=" <postfix_rhs>
+<lhs> ::= <id> | "exp" | "_"
+<postfix_rhs> ::= <rhs> | <postfix_rhs> "." <id>
+<rhs> ::= <namespace> | <literal> | <subs> | <callable_or_type_rhs> | <call> | <expr>
+<stmt> ::= <subs> | "stmt"
+<class_decl> ::= "class" "(" <decl_arg_list>? ")" "{" <block>? "}"
+<arg_list> ::= <arg> | <arg_list> "," <arg>
+<arg> ::= <postfix_rhs>
+<decl_arg_list> ::= <decl_arg> | <decl_arg_list> "," <decl_arg>
+<decl_arg> ::= <id> " " <callable_or_type_rhs>
+<primitive_type> ::= "int" | "float"
+<func_decl> ::= "(" <decl_arg_list>? ")" "{" <block>? "}"
+<callable_or_type_rhs> ::= <id> | <func_decl> | <primitive_type> | <class_decl>
+<call> ::= <callable_or_type_rhs> "(" <arg_list>? ")"
+<literal> ::= "STR" | "NUM"
+<id> ::= "ID"
+<unary_operator> ::= "++" | "--" | "sizeof:"
+<unary_expr> ::= <postfix_rhs> | <unary_operator> <unary_expr>
+<mul_expr> ::= <unary_expr> | <mul_expr> "*" <unary_expr> | <mul_expr> "/" <unary_expr> | <mul_expr> "%" <unary_expr>
+<additive_expr> ::=	<mul_expr> | <additive_expr> "+" <mul_expr> | <additive_expr> "-" <mul_expr>
+<shift_expr> ::= <additive_expr> | <shift_expr> "<<" <additive_expr> | <shift_expr> ">>" <additive_expr> 	
+<relational_expr> ::= <shift_expr> | <relational_expr> "<" <shift_expr> | <relational_expr> ">" <shift_expr> | <relational_expr> "<=" <shift_expr> | <relational_expr> ">=" <shift_expr>
+<eq_expr> ::= <relational_expr> | <eq_expr> "==" <relational_expr> | <eq_expr> "!=" <relational_expr>
+<bit_and_expr> ::= <eq_expr> | <bit_and_expr> "&" <eq_expr>
+<bit_exclusive_or_expr> ::= <bit_and_expr> | <bit_exclusive_or_expr> "^" <bit_and_expr> 	
+<bit_inclusive_or_expr> ::= <bit_exclusive_or_expr> | <bit_inclusive_or_expr> "|" <bit_exclusive_or_expr> 	
+<logical_and_expr> ::= <bit_inclusive_or_expr> | <logical_and_expr> "&&" <bit_inclusive_or_expr>
+<logical_or_expr> ::= <logical_and_expr> | <logical_or_expr> "||" <logical_and_expr>
+<conditional_expr> ::= <logical_or_expr> | <logical_or_expr> "?" <expr> ":" <conditional_expr>
+<expr> ::= <conditional_expr>

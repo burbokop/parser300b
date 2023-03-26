@@ -1,0 +1,138 @@
+use parser300b::*;
+use trim_margin::MarginTrimmable;
+
+#[test]
+fn superhard_00_test() {
+    assert_contains_tree!(
+        include_str!("superhard.bnf"),
+        [
+            "stmt",
+            ";",
+        ],
+        r#"
+            |block
+            |`stmt
+            |``stmt
+            |`;
+        "#
+    );   
+}
+
+#[test]
+fn superhard_01_test() {
+    assert_contains_tree!(
+        include_str!("superhard.bnf"),
+        [
+            "ID",
+            "=",
+            "NUM",
+            ";",
+        ],
+        r#"
+            |block
+            |`stmt
+            |``stmt
+            |`;
+            |`block
+            |``stmt
+            |```subs
+            |````lhs
+            |`````exp
+            |````=
+            |````postfix_rhs
+            |`````rhs
+            |``````call
+            |```````callable_or_type_rhs
+            |````````id
+            |`````````ID
+            |```````(
+            |```````arg_list
+            |````````arg
+            |`````````postfix_rhs
+            |``````````rhs
+            |```````````call
+            |````````````callable_or_type_rhs
+            |`````````````id
+            |``````````````ID
+            |````````````(
+            |````````````arg_list
+            |`````````````arg
+            |``````````````postfix_rhs
+            |```````````````postfix_rhs
+            |````````````````rhs
+            |`````````````````call
+            |``````````````````callable_or_type_rhs
+            |```````````````````primitive_type
+            |````````````````````int
+            |``````````````````(
+            |``````````````````)
+            |```````````````.
+            |```````````````id
+            |````````````````ID
+            |````````````)
+            |```````)
+            |``;
+        "#
+    );   
+}
+
+
+#[test]
+fn superhard_02_test() {
+    assert_contains_tree!(
+        include_str!("superhard.bnf"),
+        [
+            "ID",
+            "=",
+            "NUM",
+            "+",
+            "NUM",
+            ";",
+        ],
+        r#"
+            |block
+            |`stmt
+            |``stmt
+            |`;
+            |`block
+            |``stmt
+            |```subs
+            |````lhs
+            |`````exp
+            |````=
+            |````postfix_rhs
+            |`````rhs
+            |``````call
+            |```````callable_or_type_rhs
+            |````````id
+            |`````````ID
+            |```````(
+            |```````arg_list
+            |````````arg
+            |`````````postfix_rhs
+            |``````````rhs
+            |```````````call
+            |````````````callable_or_type_rhs
+            |`````````````id
+            |``````````````ID
+            |````````````(
+            |````````````arg_list
+            |`````````````arg
+            |``````````````postfix_rhs
+            |```````````````postfix_rhs
+            |````````````````rhs
+            |`````````````````call
+            |``````````````````callable_or_type_rhs
+            |```````````````````primitive_type
+            |````````````````````int
+            |``````````````````(
+            |``````````````````)
+            |```````````````.
+            |```````````````id
+            |````````````````ID
+            |````````````)
+            |```````)
+            |``;
+        "#
+    );
+}

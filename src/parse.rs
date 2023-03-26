@@ -34,6 +34,12 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
 
 
 pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> ParseTreeNodeIter<'tg, T> {
+    println!("l: {}", ctx.level);
+    if ctx.level > 200 {
+        return Box::new(vec![ Err(format!("max level reached")) ].into_iter()) 
+            as ParseTreeNodeIter<T>;
+    }
+
     if ctx.logs_enabled {
         println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
     }
@@ -218,8 +224,8 @@ mod tests {
     fn postfix_test() {
         assert_contains_tree!(
             r#"
-                <b> ::= <a> | <b> . <a>
-                <a> ::= N
+                |<b> ::= <a> | <b> "." <a>
+                |<a> ::= "N"
             "#,
             [ "N", ".", "N", ".", "N" ],
             r#"
@@ -242,8 +248,8 @@ mod tests {
     fn preffix_postfix_test() {
         assert_contains_tree!(
             r#"
-                <c> ::= K W = <b>
-                <b> ::= W | <b> . W
+                |<c> ::= "K" "W" "=" <b>
+                |<b> ::= "W" | <b> "." "W"
             "#,
             [ "K", "W", "=", "W", ".", "W", ".", "W" ],
             r#"
@@ -267,8 +273,8 @@ mod tests {
     fn block_test() {
         assert_contains_tree!(
             r#"
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= W
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= "W"
             "#,
             [
                 "W", ";",
@@ -295,9 +301,9 @@ mod tests {
     fn opt_block_test() {
         assert_contains_tree!(
             r#"
-                <namespace> ::= N { <block>? }
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= W
+                |<namespace> ::= "N" "{" <block>? "}"
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= "W"
             "#,
             [
                 "N", "{",
@@ -330,9 +336,9 @@ mod tests {
     fn opt_block_missing_test() {
         assert_contains_tree!(
             r#"
-                <namespace> ::= N { <block>? }
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= W
+                |<namespace> ::= "N" "{" <block>? "}"
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= "W"
             "#,
             [
                 "N", "{", "}"
@@ -351,8 +357,8 @@ mod tests {
     fn block_subs_simple_test() {
         assert_contains_tree!(
             r#"
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= Y = X
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= "Y" "=" "X"
             "#,
             [
                 "Y", "=", "X", ";",
@@ -378,10 +384,10 @@ mod tests {
     fn block_subs_test() {
         assert_contains_tree!(
             r#"
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= <lhs> = <rhs>
-                <lhs>   ::= Y
-                <rhs>   ::= X
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= <lhs> "=" <rhs>
+                |<lhs>   ::= "Y"
+                |<rhs>   ::= "X"
             "#,
             [
                 "Y", "=", "X", ";",
@@ -412,13 +418,13 @@ mod tests {
     fn block_postfix_test() {
         assert_contains_tree!(
             r#"
-                <block> ::= <subs> | <subs> ; <block>
-                <subs>  ::= <lhs> = <rhs>
-                <lhs>   ::= ID
-                <rhs>   ::= <expr> | <rhs> . <expr>
-                <expr>  ::= W
+                |<block> ::= <subs> | <subs> ";" <block>
+                |<subs>  ::= <lhs> "=" <rhs>
+                |<lhs>   ::= "ID"
+                |<rhs>   ::= <expr> | <rhs> "." <expr>
+                |<expr>  ::= "W"
             "#,
-            [ 
+            [
                 "ID", "=", "W", ".", "W", ";", 
                 "ID", "=", "W", ".", "W", ".", "W", ";", 
                 "ID", "=", "W" 
