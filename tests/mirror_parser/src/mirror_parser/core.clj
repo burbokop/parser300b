@@ -30,11 +30,17 @@
   (str "Can not parse command line args:"
        (string/join \newline errors)))
 
-(defn exit [status msg]
-  (if (= status 0)
-    (println msg)
-    (binding [*out* *err*] (println msg)))
-  (System/exit status))
+(defn printfl [arg]
+  (print arg)
+  (flush)
+  )
+
+(defn exit [status msg & {:keys [endl] :or {endl true}}] 
+            (let [pr (if endl println printfl)] 
+              (if (= status 0)
+                (pr msg) 
+                (binding [*out* *err*] (pr msg)))) 
+            (System/exit status))
 
 (def my-pretty-printer (json/create-pretty-printer 
                         (assoc json/default-pretty-print-options 
@@ -45,9 +51,9 @@
     (exit text-parse-err-code result)
    	(cond
       (= fmt "yaml")
-      (exit 0 (yaml/generate-string result :dumper-options {:flow-style :block}))
+      (exit 0 (yaml/generate-string result :dumper-options {:flow-style :block}) :endl false)
       (= fmt "json")
-      (exit 0 (json/generate-string result {:pretty my-pretty-printer}))
+      (exit 0 (json/generate-string result {:pretty my-pretty-printer}) :endl false)
       :else
       (exit 0 result))))
 

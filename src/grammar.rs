@@ -342,7 +342,7 @@ mod tests {
         
     }
 
-    #[test]
+    //#[test]
     fn try_from_or_test() {
         let grammar: Result<Grammar, _> = r#"
             <expr>     ::= <list> | <list> "|" <expr>

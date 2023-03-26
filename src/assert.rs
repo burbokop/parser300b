@@ -41,11 +41,15 @@ macro_rules! assert_contains_tree {
         }
 
         let current_log_index = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 2_u128.pow(16);
+        let log_dir = format!("logs/tests/{}", current_log_index);
+        let log_dir = log_dir.as_str();
+        std::fs::create_dir_all(log_dir).unwrap();
 
         let log_mirror_result = |output: std::process::Output, suffix: &str| {
             if output.status.success() {
-                std::fs::create_dir_all("logs/tests").unwrap();
-                std::fs::write(format!("logs/tests/{}_mirror.{}", current_log_index, suffix), String::from_utf8(output.stdout).unwrap()).unwrap();    
+                let res = String::from_utf8(output.stdout).unwrap();
+                std::fs::write(format!("{}/mirror.{}", log_dir, suffix), res.as_str()).unwrap();    
+                res
             } else {
                 panic!("mirror parser failed with code {:?} and error '{}'", output.status.code(), String::from_utf8(output.stderr).unwrap());
             }    
@@ -55,7 +59,7 @@ macro_rules! assert_contains_tree {
         let tokens_slice: &[&str] = &$tokens;
         let expected_tree_str: &str = $expected_tree;
 
-        log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(""), "yaml"), "yaml");
+        let expected_mirror_yaml: Result<String, Error> = Ok(log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(""), "yaml"), "yaml"));
         log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(""), "json"), "json");
 
         let g: Grammar = grammar_str
@@ -76,14 +80,17 @@ macro_rules! assert_contains_tree {
             .into_iter()
             .enumerate()
             .map(|(i, t)| {
-                if let Ok(t) = t {
-                    std::fs::create_dir_all("logs/tests").unwrap();
-                    std::fs::write(format!("logs/tests/{}_{}.yaml", current_log_index, i), serde_yaml::to_string(&t).unwrap()).unwrap();
-                    std::fs::write(format!("logs/tests/{}_{}.json", current_log_index, i), serde_json::to_string_pretty(&t).unwrap()).unwrap();
-                    Ok(t)
-                } else { t }
+                match t {
+                    Ok(t) => {
+                        let yaml = serde_yaml::to_string(&t).unwrap();
+                        let display = format!("{:#}", &t);
+                        std::fs::write(format!("{}/_{}.yaml", log_dir, i), &yaml).unwrap();
+                        std::fs::write(format!("{}/_{}.json", log_dir, i), serde_json::to_string_pretty(&t).unwrap()).unwrap();
+                        Ok((t, display, yaml))
+                    },
+                    Err(err) => Err(err)
+                }
             })
-            .map(|t|t.map(|t|format!("{:#}", t)))
             .collect();
         
         trees.sort_by(|x, y| x.is_ok().cmp(&y.is_ok()) );
@@ -92,8 +99,16 @@ macro_rules! assert_contains_tree {
 
         let mut found = false;
         for tree in &trees {
-            if *tree == expected {
+            if tree.clone().map(|t|t.1) == expected {
                 found = true;
+                break;
+            }
+        }
+
+        let mut mirror_found = false;
+        for tree in &trees {
+            if tree.clone().map(|t|t.2) == expected_mirror_yaml {
+                mirror_found = true;
                 break;
             }
         }
@@ -101,7 +116,7 @@ macro_rules! assert_contains_tree {
         if !found {
             let left_variants = trees.iter().map(|l| {
                 match l {
-                    Ok(tree) => format!("\ttree:\n{:#}\n", add_margins(tree, 2)),
+                    Ok(tree) => format!("\ttree:\n{:#}\n", add_margins(&tree.1, 2)),
                     Err(err) => format!("\tfail: '{}'\n", err)
                 }
             })
@@ -114,6 +129,26 @@ macro_rules! assert_contains_tree {
                 Ok(tree) => panic!("assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\ttree:\n{:#}\n{}\n", 
                     separator, left_variants, add_margins(&tree, 2), separator),
                 Err(err) => panic!("assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\tfail: '{:#}'\n{}\n", 
+                    separator, left_variants, err, separator)
+            }
+        }
+
+        if !mirror_found {
+            let left_variants = trees.iter().map(|l| {
+                match l {
+                    Ok(tree) => format!("\ttree:\n{:#}\n", add_margins(&tree.2, 2)),
+                    Err(err) => format!("\tfail: '{}'\n", err)
+                }
+            })
+                .collect::<Vec<_>>()
+                .join("");
+
+            let separator = "<|".to_string() + &String::from_utf8(vec![b'-'; 32]).unwrap() + "|>";
+
+            match expected_mirror_yaml {
+                Ok(tree) => panic!("mirror assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\ttree:\n{:#}\n{}\n", 
+                    separator, left_variants, add_margins(&tree, 2), separator),
+                Err(err) => panic!("mirror assertion failed: `left.contains(right)`\n{}\nleft:\n{}right:\n\tfail: '{:#}'\n{}\n", 
                     separator, left_variants, err, separator)
             }
         }
