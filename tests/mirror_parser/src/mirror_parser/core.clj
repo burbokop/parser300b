@@ -54,8 +54,6 @@
 (def filter-ws-seq
   (filter (fn [x] (if (vector? x) (not (in? x :whitespace)) true))))
 
-(transduce filter-ws-seq conj [:block [:subs [:lhs "ID"] [:whitespace " "]] [:whitespace " "]])
-
 (defn filter-ws [tree]
   (vec (map 
         (fn [x] (if (vector? x) (filter-ws x) x)) 

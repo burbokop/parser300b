@@ -13,6 +13,9 @@ pub fn init_assert_contains_tree() {
 #[macro_export]
 #[allow_internal_unstable(core_panic)]
 macro_rules! assert_contains_tree {
+    ($grammar:expr, $tokens:expr) => {
+        assert_contains_tree!($grammar, $tokens, "any")
+    };
     ($grammar:expr, $tokens:expr, $expected_tree:expr) => {
 
         init_assert_contains_tree();
@@ -37,21 +40,31 @@ macro_rules! assert_contains_tree {
                 .arg("--format")
                 .arg(format)
                 .output()
-                .unwrap()
+                .expect("mirror_parser-TEST_ONLY-standalone.jar executed")
         }
 
-        let current_log_index = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 2_u128.pow(16);
+        let current_log_index = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("duration since epoch got")
+            .as_nanos() % 2_u128.pow(16);
+
         let log_dir = format!("logs/tests/{}", current_log_index);
         let log_dir = log_dir.as_str();
-        std::fs::create_dir_all(log_dir).unwrap();
+        std::fs::create_dir_all(log_dir).expect("logs dir created");
 
         let log_mirror_result = |output: std::process::Output, suffix: &str| {
             if output.status.success() {
-                let res = String::from_utf8(output.stdout).unwrap();
-                std::fs::write(format!("{}/mirror.{}", log_dir, suffix), res.as_str()).unwrap();    
+                let res = String::from_utf8(output.stdout).expect("mirror output being utf8");
+                std::fs::write(format!("{}/mirror.{}", log_dir, suffix), res.as_str())
+                    .expect("mirror log writed");    
                 res
             } else {
-                panic!("mirror parser failed with code {:?} and error '{}'", output.status.code(), String::from_utf8(output.stderr).unwrap());
+                panic!(
+                    "mirror parser failed with code {:?} and error '{}'", 
+                    output.status.code(), 
+                    String::from_utf8(output.stderr)
+                        .expect("mirror error message being utf8")
+                );
             }    
         };
 
@@ -65,7 +78,7 @@ macro_rules! assert_contains_tree {
         let g: ExtGrammar = grammar_str
             .as_str()
             .try_into()
-            .unwrap();
+            .expect("grammar parsed");
 
         let g = g.flatten();
 
@@ -97,9 +110,17 @@ macro_rules! assert_contains_tree {
 
         let expected: Result<String, Error> = Ok(String::from(expected_tree_str.trim_margin().unwrap()) + "\n");
 
+        fn is_same_with_expected(actual: Result<String, String>, exp: &Result<String, String>) -> bool {
+            if $expected_tree == "any" {
+                actual.is_ok()
+            } else {
+                actual == *exp
+            }
+        }
+
         let mut found = false;
-        for tree in &trees {
-            if tree.clone().map(|t|t.1) == expected {
+        for tree in &trees {            
+            if is_same_with_expected(tree.clone().map(|t|t.1), &expected) {
                 found = true;
                 break;
             }

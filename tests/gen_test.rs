@@ -41,18 +41,17 @@ fn gen_test() {
 
     match generate(GenerateArgs { 
         grammar: &grammar, 
-        count: 1, 
+        count: 10,
         separator: separator, 
-        max_reductions: 10, 
-        max_nonprod_reductions: 10
+        max_reductions: 30,
+        max_nonprod_reductions: 30
     }) {
         Ok(gens) => {
             for gen in gens {
                 let gen: Vec<&str> = gen.iter().map(|g|g.as_str()).collect();
                 println!("gen: {:?}", gen);
-                assert_contains_tree!(grammar_str, &gen, "");
+                assert_contains_tree!(grammar_str, &gen);
             }
-            panic!("");
         },
         Err(err) => panic!("{}", err),
     }
