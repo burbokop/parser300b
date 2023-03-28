@@ -46,21 +46,36 @@
                         (assoc json/default-pretty-print-options 
                                :indent-arrays? true)))
 
+(defn in?
+  "true if coll contains elm"
+  [coll elm]
+  (some #(= elm %) coll))
+
+(def filter-ws-seq
+  (filter (fn [x] (if (vector? x) (not (in? x :whitespace)) true))))
+
+(transduce filter-ws-seq conj [:block [:subs [:lhs "ID"] [:whitespace " "]] [:whitespace " "]])
+
+(defn filter-ws [tree]
+  (vec (map 
+        (fn [x] (if (vector? x) (filter-ws x) x)) 
+        (transduce filter-ws-seq conj tree))))
+
 (defn process-result [result, fmt]
   (if (insta/failure? result)
     (exit text-parse-err-code result)
    	(cond
       (= fmt "yaml")
-      (exit 0 (yaml/generate-string result :dumper-options {:flow-style :block}) :endl false)
+      (exit 0 (yaml/generate-string (filter-ws result) :dumper-options {:flow-style :block}) :endl false)
       (= fmt "json")
-      (exit 0 (json/generate-string result {:pretty my-pretty-printer}) :endl false)
+      (exit 0 (json/generate-string (filter-ws result) {:pretty my-pretty-printer}) :endl false)
       :else
       (exit 0 result))))
 
 (defn parser
   [grammar]
   (try
-    (insta/parser grammar)
+    (insta/parser grammar :auto-whitespace :standard)
     (catch Exception err (exit
                          gram-parse-err-code 
                          (format "error parsing grammar:\n>>----------<<\n%s\n>>----------<<\n':\n%s"

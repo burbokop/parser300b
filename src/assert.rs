@@ -59,10 +59,10 @@ macro_rules! assert_contains_tree {
         let tokens_slice: &[&str] = &$tokens;
         let expected_tree_str: &str = $expected_tree;
 
-        let expected_mirror_yaml: Result<String, Error> = Ok(log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(""), "yaml"), "yaml"));
-        log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(""), "json"), "json");
+        let expected_mirror_yaml: Result<String, Error> = Ok(log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(" "), "yaml"), "yaml"));
+        log_mirror_result(mirror_parse(&grammar_str, &tokens_slice.join(" "), "json"), "json");
 
-        let g: Grammar = grammar_str
+        let g: ExtGrammar = grammar_str
             .as_str()
             .try_into()
             .unwrap();

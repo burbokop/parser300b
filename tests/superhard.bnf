@@ -20,13 +20,13 @@
 <unary_expr> ::= <postfix_rhs> | <unary_operator> <unary_expr>
 <mul_expr> ::= <unary_expr> | <mul_expr> "*" <unary_expr> | <mul_expr> "/" <unary_expr> | <mul_expr> "%" <unary_expr>
 <additive_expr> ::=	<mul_expr> | <additive_expr> "+" <mul_expr> | <additive_expr> "-" <mul_expr>
-<shift_expr> ::= <additive_expr> | <shift_expr> "<<" <additive_expr> | <shift_expr> ">>" <additive_expr> 	
+<shift_expr> ::= <additive_expr> | <shift_expr> "<<" <additive_expr> | <shift_expr> ">>" <additive_expr>
 <relational_expr> ::= <shift_expr> | <relational_expr> "<" <shift_expr> | <relational_expr> ">" <shift_expr> | <relational_expr> "<=" <shift_expr> | <relational_expr> ">=" <shift_expr>
 <eq_expr> ::= <relational_expr> | <eq_expr> "==" <relational_expr> | <eq_expr> "!=" <relational_expr>
-<bit_and_expr> ::= <eq_expr> | <bit_and_expr> "&" <eq_expr>
-<bit_exclusive_or_expr> ::= <bit_and_expr> | <bit_exclusive_or_expr> "^" <bit_and_expr> 	
-<bit_inclusive_or_expr> ::= <bit_exclusive_or_expr> | <bit_inclusive_or_expr> "|" <bit_exclusive_or_expr> 	
-<logical_and_expr> ::= <bit_inclusive_or_expr> | <logical_and_expr> "&&" <bit_inclusive_or_expr>
-<logical_or_expr> ::= <logical_and_expr> | <logical_or_expr> "||" <logical_and_expr>
+<bit_and_expr> ::= <eq_expr> | <bit_and_expr> "conj" <eq_expr>
+<bit_exclusive_or_expr> ::= <bit_and_expr> | <bit_exclusive_or_expr> "^" <bit_and_expr>
+<bit_inclusive_or_expr> ::= <bit_exclusive_or_expr> | <bit_inclusive_or_expr> "disj" <bit_exclusive_or_expr> 	
+<logical_and_expr> ::= <bit_inclusive_or_expr> | <logical_and_expr> "and" <bit_inclusive_or_expr>
+<logical_or_expr> ::= <logical_and_expr> | <logical_or_expr> "or" <logical_and_expr>
 <conditional_expr> ::= <logical_or_expr> | <logical_or_expr> "?" <expr> ":" <conditional_expr>
 <expr> ::= <conditional_expr>

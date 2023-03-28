@@ -39,7 +39,7 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
 }
 
 
-pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> ParseTreeNodeIter<'tg, T> {
+pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTreeNodeIter<'tg, T> {
     if ctx.level >= 128 {
         return Box::new(vec![ Err(format!("max level reached")) ].into_iter()) 
             as ParseTreeNodeIter<T>;
@@ -49,13 +49,8 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg OptTerm) -> Pars
         println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
     }
 
-    if term.is_optional {
-        return Box::new(vec![ Err(format!("optional terms are unimplemented. term '{}' is optional. call Grammar::flatten() to remove them", term)) ].into_iter()) 
-            as ParseTreeNodeIter<T>;
-    }
-
     //println!("{}", format!("do_term: {}, {:?}", ctx, term).magenta());
-    let r = match &term.term {
+    let r = match &term {
         Term::Terminal(terminal) => {
             Box::new(if ctx.len() == 1 {
                 if ctx.front().name() == terminal {
@@ -211,7 +206,7 @@ mod tests {
         Error, 
         assert_contains_tree
     };
-    use crate::grammar::Grammar;
+    use crate::grammar::{Grammar, ExtGrammar};
     use trim_margin::MarginTrimmable;
 
     
@@ -500,7 +495,7 @@ mod tests {
 
     #[test]
     fn hard_level_test() {
-        let g: Grammar = ""
+        let g: ExtGrammar = ""
             .try_into()
             .unwrap();
 
@@ -508,6 +503,8 @@ mod tests {
             .into_iter()
             .map(|x| String::from(x))
             .collect();
+
+        let g = g.flatten();
 
         let ctx = crate::parse::make_ctx(&g, &t, true, true);
 

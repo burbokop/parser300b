@@ -97,3 +97,78 @@ fn superhard_02_test() {
         "#
     );
 }
+
+///parse text: "exp = namespace { clazz = class(x int, y (){ 1 }) { (x + 1) * y } }"
+#[test]
+fn superhard_03_test() {
+    assert_contains_tree!(
+        include_str!("superhard.bnf"),
+        [
+            "exp",
+            "=",
+            "namespace",
+            "{",
+            "ID",
+            "=",
+            "class",
+            "(",
+            "ID",
+            "int",
+            ",",
+            "y",
+            "(",
+            ")",
+            "{",
+            "1",
+            "}",
+            ")",
+            "{",
+            "(",
+            "x",
+            "+",
+            "1",
+            ")",
+            "*",
+            "y",
+            "}",
+            "}",
+        ],
+        r#"
+            |block
+            |`stmt
+            |``subs
+            |```lhs
+            |````id
+            |`````ID
+            |```=
+            |```postfix_rhs
+            |````rhs
+            |`````expr
+            |``````conditional_expr
+            |```````logical_or_expr
+            |````````logical_and_expr
+            |`````````bit_inclusive_or_expr
+            |``````````bit_exclusive_or_expr
+            |```````````bit_and_expr
+            |````````````eq_expr
+            |`````````````relational_expr
+            |``````````````shift_expr
+            |```````````````additive_expr
+            |````````````````additive_expr
+            |`````````````````mul_expr
+            |``````````````````unary_expr
+            |```````````````````postfix_rhs
+            |````````````````````rhs
+            |`````````````````````literal
+            |``````````````````````NUM
+            |````````````````+
+            |````````````````mul_expr
+            |`````````````````unary_expr
+            |``````````````````postfix_rhs
+            |```````````````````rhs
+            |````````````````````literal
+            |`````````````````````NUM
+            |`;
+        "#
+    );
+}

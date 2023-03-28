@@ -1,11 +1,11 @@
 use std::{io::{stdin, stdout, Write}, process::exit, thread, time};
 
 use colored::Colorize;
-use parser300b::{Grammar, parse, make_ctx};
+use parser300b::{Grammar, parse, make_ctx, ExtGrammar};
 
 
 fn main() {
-    let grammar: Grammar = r#"
+    let grammar: ExtGrammar = r#"
         <block> ::= <stmt> ";" | <stmt> ";" <block>
         <namespace> ::= "namespace" "{" <block>? "}"
         <subs> ::= <lhs> "=" <postfix_rhs>

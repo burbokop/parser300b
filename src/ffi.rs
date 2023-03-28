@@ -1,6 +1,6 @@
 use std::{ffi::{c_char, CStr, c_void}, str::Utf8Error, slice, fmt::Display};
 
-use crate::{Term, Expression, Production, Grammar, ctx::Token, OptTerm};
+use crate::{Term, Expression, Production, Grammar, ctx::Token, OptTerm, make_ctx, parse, ExtExpression, ExtProduction, ExtGrammar};
 
 
 
@@ -29,12 +29,12 @@ pub struct parser300b_Expression {
 }
 
 impl parser300b_Expression {
-    pub unsafe fn to_non_c(&self) -> Result<Expression, Utf8Error> {        
+    pub unsafe fn to_non_c(&self) -> Result<ExtExpression, Utf8Error> {        
         slice::from_raw_parts(self.terms, self.term_count)
             .iter()
             .map(|t| t.to_non_c())
             .collect::<Result<Vec<_>, _>>()
-            .map(|t| Expression { terms: t })
+            .map(|t| ExtExpression { terms: t })
     }
 }
 
@@ -46,13 +46,13 @@ pub struct parser300b_Production {
 }
 
 impl parser300b_Production {
-    pub unsafe fn to_non_c(&self) -> Result<Production, Utf8Error> {
+    pub unsafe fn to_non_c(&self) -> Result<ExtProduction, Utf8Error> {
         let lhs = CStr::from_ptr(self.lhs).to_str()?;
         slice::from_raw_parts(self.rhs, self.rhs_count)
             .iter()
             .map(|t| t.to_non_c())
             .collect::<Result<Vec<_>, _>>()
-            .map(|e| Production { lhs: lhs.to_string(), rhs: e })
+            .map(|e| ExtProduction { lhs: lhs.to_string(), rhs: e })
     }
 }
 
@@ -63,12 +63,12 @@ pub struct parser300b_Grammar {
 }
 
 impl parser300b_Grammar {
-    pub unsafe fn to_non_c(&self) -> Result<Grammar, Utf8Error> {
+    pub unsafe fn to_non_c(&self) -> Result<ExtGrammar, Utf8Error> {
         slice::from_raw_parts(self.productions, self.production_count)
             .iter()
             .map(|t| t.to_non_c())
             .collect::<Result<Vec<_>, _>>()
-            .map(|p| Grammar { productions: p })
+            .map(|p| ExtGrammar { productions: p })
     }
 }
 
@@ -110,13 +110,19 @@ impl<'n> Token for CToken<'n> {
 pub unsafe extern "C" fn parser300b_parse(grammar: *const parser300b_Grammar, tokens: *const parser300b_Token, token_count: usize) {
     if !grammar.is_null() {
         let grammar: &parser300b_Grammar = &*grammar;
-        let grammar = grammar.to_non_c().unwrap();
-        let tokens = slice::from_raw_parts(tokens, token_count)
-            .iter()
-            .map(|t| t.to_non_c())
-            .collect::<Result<Vec<_>, _>>();
-
-        println!("parser300b_parse: {:#?} <- {:#?}", tokens, grammar);
+        grammar.to_non_c().and_then(|grammar| {
+            slice::from_raw_parts(tokens, token_count)
+                .iter()
+                .map(|t| t.to_non_c())
+                .collect::<Result<Vec<_>, _>>()
+                .and_then(|tokens| {
+                    println!("parser300b_parse: {:#?} <- {:#?}", tokens, grammar);
+                    let grammar = grammar.flatten();
+                    let ctx = make_ctx(&grammar, &tokens, false, true);
+                    let _ = parse(ctx); // TODO return result
+                    Ok(())
+                })
+            }).unwrap();                
     } else {
         panic!("grammar is null")
     }

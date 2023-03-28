@@ -62,6 +62,8 @@ compile_commands.json
 
 # NodeJs
 /node_modules
+/tests/generator/node_modules
+/tests/generator/target
 package-lock.json
 
 # Clojure
@@ -74,10 +76,11 @@ pom.xml
 pom.xml.asc
 *.jar
 *.class
-/.lein-*
-/.nrepl-port
+/tests/mirror_parser/.lein-*
+/tests/mirror_parser/.nrepl-port
 .clj-kondo/
 .lsp/
+.calva/
 
 # Logs
 *.log

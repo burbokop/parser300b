@@ -13,6 +13,8 @@ const rules = [
     [ /^\s+/, match => null ],
     [ /^_/, match => lexing.Token('ANON', match[0]) ],
     [ /^::=/, match => lexing.Token('BNF_EQ', match[0]) ],
+    [ /^[+]/, match => lexing.Token('PLUS', match[0]) ],
+    [ /^[*]/, match => lexing.Token('MUL', match[0]) ],
     [ /^[(]/, match => lexing.Token('OP', match[0]) ],
     [ /^[)]/, match => lexing.Token('EP', match[0]) ],
     [ /^[{]/, match => lexing.Token('OB', match[0]) ],
