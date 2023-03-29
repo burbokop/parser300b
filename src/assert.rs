@@ -89,6 +89,8 @@ macro_rules! assert_contains_tree {
 
         let ctx = make_ctx(&g, &t, false, true);
 
+
+        let start_parse_instant = std::time::Instant::now();
         let mut trees: Vec<_> = parse(ctx)
             .into_iter()
             .enumerate()
@@ -105,8 +107,10 @@ macro_rules! assert_contains_tree {
                 }
             })
             .collect();
+        println!("parsing duration: {:?}", start_parse_instant.elapsed());
         
         trees.sort_by(|x, y| x.is_ok().cmp(&y.is_ok()) );
+        let trees = trees;
 
         let expected: Result<String, Error> = Ok(String::from(expected_tree_str.trim_margin().unwrap()) + "\n");
 
