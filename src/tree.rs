@@ -72,6 +72,17 @@ fn format_tree<T: Token>(tree: &ParseTree<T>, f: &mut std::fmt::Formatter<'_>, l
     Ok(())
 }
 
+
+impl<'t, 'g, T: Token> Display for ParseTreeNode<'t, 'g, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            format_node(self, f, 0)
+        } else {
+            panic!("can not display ParseTreeNode without #")
+        }
+    }
+}
+
 impl<'t, 'g, T: Token> Display for ParseTree<'t, 'g, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {

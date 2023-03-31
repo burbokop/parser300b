@@ -3,9 +3,7 @@ use parser300b::{Grammar, ExtGrammar, make_ctx, parse};
 use trim_margin::MarginTrimmable;
 
 
-fn sh_benchmark(c: &mut Criterion) {
-
-
+fn parse_benchmark(c: &mut Criterion) {
     let grammar: Grammar = {
         let result: ExtGrammar = r#"
             <block> ::= <stmt> ";" | <stmt> ";" <block>
@@ -107,9 +105,16 @@ fn sh_benchmark(c: &mut Criterion) {
         |
     "#.trim_margin().unwrap()));
 
-    // 1: 820.31 s / 100 smaples
+    // 430.93 s / 100 smaples
+    // 4.6605 s
+    c.bench_function("parse:first", |b| 
+        b.iter(|| 
+            parse(black_box(ctx.clone())).find(|t|t.is_ok())
+        )
+    );
 
-    c.bench_function("parse", |b| 
+    // 820.31 s / 100 smaples
+    c.bench_function("parse:all", |b| 
         b.iter(|| 
             parse(black_box(ctx.clone()))
                 .collect::<Vec<_>>()
@@ -117,5 +122,5 @@ fn sh_benchmark(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, sh_benchmark);
+criterion_group!(benches, parse_benchmark);
 criterion_main!(benches);

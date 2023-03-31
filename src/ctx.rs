@@ -1,7 +1,12 @@
 use std::fmt::Display;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::ops::Range;
+use std::usize;
+
+use colored::Color;
 
 use crate::Production;
 use crate::{combination::*, grammar::Grammar};
@@ -12,18 +17,20 @@ pub trait Token: Debug + Display + Clone {
 }
 
 impl Token for String {
+    #[inline]
     fn name(&self) -> &str {
         self.as_str()
     }
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct Arr<T> {
-    arr: [T; 128],
+pub(crate) struct Arr<T, const CAPACITY: usize> {
+    arr: [T; CAPACITY],
     len: usize
 }
 
-impl<T> Default for Arr<T> {
+impl<T, const CAPACITY: usize> Default for Arr<T, CAPACITY> {
+    #[inline]
     fn default() -> Self {
         Self { 
             arr: unsafe { MaybeUninit::uninit().assume_init() }, 
@@ -32,9 +39,10 @@ impl<T> Default for Arr<T> {
     }
 }
 
-impl<T> Arr<T> {
+impl<T, const CAPACITY: usize> Arr<T, CAPACITY> {
+    #[inline]
     pub fn with(mut self, v: T) -> Result<Self, String> {
-        if self.len < 128 {
+        if self.len < CAPACITY {
             self.arr[self.len] = v;
             self.len += 1;
             Ok(self)
@@ -43,10 +51,30 @@ impl<T> Arr<T> {
         }
     }
 
+    #[cfg(debug_assertions)]
+    #[inline]
+    pub fn push(&mut self, v: T) {
+        if self.len < CAPACITY {
+            self.arr[self.len] = v;
+            self.len += 1;
+        } else {
+            panic!("max capacity exceeded")
+        }        
+    }
+    
+    #[cfg(not(debug_assertions))]
+    #[inline]
+    pub fn push(&mut self, v: T) {
+        self.arr[self.len] = v;
+        self.len += 1;
+    }
+
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[inline]
     pub fn back(&self) -> Option<&T> {
         if self.len > 0 {
             Some(&self.arr[self.len])
@@ -54,6 +82,8 @@ impl<T> Arr<T> {
             None
         }
     } 
+
+    #[inline]
     pub fn head(&self) -> &[T] {
         if self.len > 0 {
             &self.arr[0..self.len - 1]
@@ -63,7 +93,23 @@ impl<T> Arr<T> {
     } 
 }
 
-impl<'g> Display for Arr<&'g Production> {
+impl<T, const CAPACITY: usize> Deref for Arr<T, CAPACITY> {
+    type Target = [T];
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.arr
+    }
+}
+
+impl<T, const CAPACITY: usize> DerefMut for Arr<T, CAPACITY> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.arr
+    }
+}
+
+impl<'g, const CAPACITY: usize> Display for Arr<&'g Production, CAPACITY> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg_list = f.debug_list();
         for i in 0..self.len {
@@ -82,15 +128,31 @@ pub struct Ctx<'t, 'g, T> {
     pub level: usize,
     pub logs_enabled: bool,
     pub ignore_errors: bool,
-    pub(crate) prod_stack: Arr<&'g Production> // needed to avoid production recursion
+    pub(crate) prod_stack: Arr<&'g Production, 128> // needed to avoid production recursion
 }
 
 impl<'t, 'g, T> Ctx<'t, 'g, T> {
+    #[inline]
+    pub fn test(begin: usize, end: usize, tokens: &'t Vec<T>, grammar: &'g Grammar) -> Self {
+        Self { 
+            begin: begin, 
+            end: end, 
+            tokens: tokens, 
+            grammar: grammar, 
+            level: 0, 
+            logs_enabled: false, 
+            ignore_errors: true, 
+            prod_stack: Default::default() 
+        }
+    }
+
+    #[inline]
     pub fn reset_stack(mut self) -> Self {
         self.prod_stack = Default::default();
         self
     }
     
+    #[inline]
     pub fn next_level(&self, production: &'g Production) -> Ctx<'t, 'g, T> {
         Ctx {
             begin: self.begin, 
@@ -104,6 +166,16 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
         }
     }
 
+    #[inline]
+    pub fn color(&self) -> Color {
+        Color::TrueColor { 
+            r: ((self.level * 32) % 256) as u8,
+            g: ((self.level * 64) % 256) as u8, 
+            b: ((self.level * 128) % 256) as u8,
+        }
+    }
+
+    #[inline]
     pub fn at(&self, range: Range<usize>) -> Ctx<'t, 'g, T> {
         Ctx { 
             begin: range.start,
@@ -117,11 +189,12 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
         }
     }
 
+    #[inline]
     pub fn split(&self, combination: Combination) -> Vec<Ctx<'t, 'g, T>> {
-        let mut result: Vec<Ctx<T>> = Vec::with_capacity(combination.marks.len());
+        let mut result: Vec<Ctx<T>> = Vec::with_capacity(combination.marks.len() + 1);
 
         if combination.marks.len() > 0 {
-            if combination.marks[0] > self.begin {
+            if combination.marks[0] as usize > self.begin {
                 result.push(Ctx {
                     begin: self.begin,
                     end: combination.marks[0],
@@ -175,20 +248,24 @@ impl<'t, 'g, T> Ctx<'t, 'g, T> {
         result
     }
 
+    #[inline]
     pub fn combinations(&self, subctx_count: usize) -> Vec<Combination> {
         generate_combinations(self.begin + 1, self.end, subctx_count - 1)
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         return self.end - self.begin
     }
 
+    #[inline]
     pub fn front(&self) -> &'t T {
         &self.tokens[self.begin]
     }
 }
 
 impl<'t, 'g, T> PartialEq for Ctx<'t, 'g, T> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.begin == other.begin && 
         self.end == other.end && 
@@ -198,25 +275,29 @@ impl<'t, 'g, T> PartialEq for Ctx<'t, 'g, T> {
 }
 
 impl<'t, 'g, T: Display> Display for Ctx<'t, 'g, T> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let segment = self.tokens[self.begin..self.end]
+            .iter()
+            .map(|p| format!("{}", p))
+            .collect::<Vec<_>>()
+            .join("");
+
         if f.alternate() {
             f.write_fmt(format_args!(
                 "<{}, {}, '{}'> ", 
                 self.begin, 
                 self.end, 
-                self.tokens[self.begin..self.end]
-                    .iter()
-                    .map(|p| format!("{}", p))
-                    .collect::<Vec<_>>()
-                    .join("")
+                segment
             ))
         } else {
-            f.write_fmt(format_args!("<{}, {}>", self.begin, self.end))
+            f.write_fmt(format_args!("'{}'", segment))
         }
     }
 }
 
 impl<'t, 'g, T> Debug for Ctx<'t, 'g, T> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("<{}, {}>", self.begin, self.end))
     }
@@ -230,6 +311,7 @@ impl<T> Display for VecDisplay<T>
 where 
     T: Display
 {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.v.len() == 0 {
             f.write_str("[]")

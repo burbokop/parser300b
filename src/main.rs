@@ -1,29 +1,13 @@
 use std::{io::{stdin, stdout, Write}, process::exit, thread, time};
 
-use colored::Colorize;
+use colored::*;
 use parser300b::{Grammar, parse, make_ctx, ExtGrammar};
 
 
 fn main() {
     let grammar: ExtGrammar = r#"
-        <block> ::= <stmt> ";" | <stmt> ";" <block>
-        <namespace> ::= "namespace" "{" <block>? "}"
-        <subs> ::= <lhs> "=" <postfix_rhs>
-        <lhs> ::= <id> | "exp" | "_"
-        <postfix_rhs> ::= <rhs> | <postfix_rhs> "." <id>
-        <rhs> ::= <namespace> | <literal> | <subs> | <callable_or_type_rhs> | <call>
-        <stmt> ::= <subs> | "stmt"
-        <class_decl> ::= "class" "(" <decl_arg_list>? ")" "{" <block>? "}"
-        <arg_list> ::= <arg> | <arg_list> "," <arg>
-        <arg> ::= <postfix_rhs>
-        <decl_arg_list> ::= <decl_arg> | <decl_arg_list> "," <decl_arg>
-        <decl_arg> ::= <id> " " <callable_or_type_rhs>
-        <primitive_type> ::= "int" | "float"
-        <func_decl> ::= "(" <decl_arg_list>? ")" "{" <block>? "}"
-        <callable_or_type_rhs> ::= <id> | <func_decl> | <primitive_type> | <class_decl>
-        <call> ::= <callable_or_type_rhs> "(" <arg_list>? ")"
-        <literal> ::= "STR" | "NUM"
-        <id> ::= "ID"
+        <c> ::= "K" "W" "=" <b>
+        <b> ::= "W" | <b> "." "W"
     "#.try_into().unwrap();
 
     let grammar = grammar.flatten();
@@ -31,22 +15,7 @@ fn main() {
     println!("grammar: {:#?}", grammar);
 
     let tokens = vec![
-        "stmt",
-        ";",
-        "exp",
-        "=",
-        "ID",
-        "(",
-        "ID",
-        "(",
-        "int",
-        "(",
-        ")",
-        ".",
-        "ID",
-        ")",
-        ")",
-        ";",
+        "K", "W", "=", "W", ".", "W", ".", "W"
     ];
 
     let tokens: Vec<_> = tokens
@@ -54,7 +23,7 @@ fn main() {
         .map(|x| String::from(x))
         .collect();
 
-    let ctx = make_ctx(&grammar, &tokens, true, true);
+    let ctx = make_ctx(&grammar, &tokens, true, false);
     let mut a = parse(ctx);
 
     println!("q - quit");
@@ -88,7 +57,8 @@ fn main() {
             }
         }
 
-        println!("going next...");
+        println!("{}", format!("going next...").blue());
+
         if print_res {
             match a.next() {
                 Some(tree) => match tree {
@@ -106,7 +76,7 @@ fn main() {
                 None => exit(0),
             }
         }
-        println!("OK");
+        println!("{}", format!("OK").blue());
 
         //match a {
         //    Ok(tree) => println!("{:#}", tree),

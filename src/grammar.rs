@@ -50,7 +50,7 @@ impl Display for OptTerm {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
     pub terms: Vec<Term>,
 }

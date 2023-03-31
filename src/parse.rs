@@ -1,3 +1,5 @@
+use colored::Colorize;
+
 use crate::grammar::*;
 use crate::tree::*;
 use crate::combination::*;
@@ -10,10 +12,11 @@ pub type Error = String;
 pub type ParseTreeIter<'tg, T> = Box<dyn Iterator<Item = Result<ParseTree<'tg, 'tg, T>, Error>> + 'tg>;
 pub type ParseTreeNodeIter<'tg, T> = Box<dyn Iterator<Item = Result<ParseTreeNode<'tg, 'tg, T>, Error>> + 'tg>;
 
+#[inline]
 pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Production) -> ParseTreeIter<'tg, T> {
     if ctx.logs_enabled {
-        println!("{:<48}{:#}", format!("->{}{}", "`".repeat(ctx.level), production.lhs), ctx);
-        println!("{:<48}{:#}", format!("ss{}{}", "`".repeat(ctx.level), &ctx.prod_stack), ctx);
+        println!("{:<48}{} ({})", format!("->{}{}", "`".repeat(ctx.level), production.lhs).on_color(ctx.color()), ctx, production);
+        //println!("{:<48}{:#}", format!("ss{}{}", "`".repeat(ctx.level), &ctx.prod_stack).on_color(ctx.color()), ctx);
     }
     
     if ctx.prod_stack.head().iter().find(|p| p.lhs == production.lhs).is_some() {
@@ -22,14 +25,34 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
     }
 
     let ignore_errors = ctx.ignore_errors;
+    let logs_enabled = ctx.logs_enabled;
+    let level = ctx.level;
+    let color = ctx.color();
+    
+    use crate::atend::*;
 
     //println!("{}", format!("do_production: {}, {:?}", ctx, production).yellow());
     let r = production
         .rhs
         .iter()
+        .rev()
         .map(move |expression| do_expression(ctx.clone(), &production.lhs, expression))
-        .flatten();
-        
+        .flatten()
+        .at_end(move |res| {
+            if logs_enabled {
+                let ok = res.iter().find(|f|f.is_ok());
+                println!(
+                    "{:<48}{}",
+                    format!("<-{}{}", "`".repeat(level), production.lhs).on_color(color), 
+                    if ok.is_some() { "OK".green() } else { "FAIL".red() }
+                );
+                    //println!("{:<48}{:#}", format!("ss{}{}", "`".repeat(ctx.level), &ctx.prod_stack).on_color(ctx.color()), ctx);
+            }        
+        });
+
+    //let r: Vec<_> = r.collect();
+
+    
     //println!("{}", format!("do_production end: {:?}", r).yellow().on_black());
     if ignore_errors {
         Box::new(r.filter(|f|f.is_ok()))
@@ -38,7 +61,7 @@ pub fn do_production<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production: &'tg Prod
     }
 }
 
-
+#[inline]
 pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTreeNodeIter<'tg, T> {
     if ctx.level >= 128 {
         return Box::new(vec![ Err(format!("max level reached")) ].into_iter()) 
@@ -46,7 +69,7 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTr
     }
 
     if ctx.logs_enabled {
-        println!("{:<48}{:#}", format!("T {}{}", "`".repeat(ctx.level), term), ctx);
+        println!("{:<48}{}", format!("T {}{}", "`".repeat(ctx.level), term).on_color(ctx.color()), ctx);
     }
 
     //println!("{}", format!("do_term: {}, {:?}", ctx, term).magenta());
@@ -80,11 +103,12 @@ pub fn do_term<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, term: &'tg Term) -> ParseTr
     r
 }
 
+#[inline]
 pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg String, expression: &'tg Expression) -> ParseTreeIter<'tg, T> {
     if ctx.logs_enabled {
-        println!("{:<48}{:#}", format!("E {}{}", "`".repeat(ctx.level), VecDisplay { v: expression.terms.iter().collect() }), ctx);
+        println!("{:<48}{}", format!("E {}{}", "`".repeat(ctx.level), VecDisplay { v: expression.terms.iter().collect() }).on_color(ctx.color()), ctx);
         for c in ctx.combinations(expression.terms.len()) {
-            println!("{:<48}{:#}", format!("C {}", "`".repeat(ctx.level)), VecDisplay { v: ctx.split(c) });
+            println!("{:<48}{}", format!("cc{}", "`".repeat(ctx.level)).on_color(ctx.color()), VecDisplay { v: ctx.split(c) });
         }
     }
     //let ctx = &ctx;
@@ -94,21 +118,24 @@ pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg
         ctx
     };
     //println!("{}", format!("do_expression: {}, '{}', {:?}", ctx, production_name, expression).blue());
-    let r = ctx.combinations(expression.terms.len()).into_iter().map(move |combination|{
-        //println!("{}", format!("\tcombination: {:?}, {}", combination, VecDisplay { v: ctx.split(combination.clone()) }).blue().italic());
+    let r = ctx.combinations(expression.terms.len()).into_iter().rev().map(move |combination|{
+        if ctx.logs_enabled {
+            println!("{}", format!("{:<48}{}", format!("C {}", "`".repeat(ctx.level)).on_color(ctx.color()), VecDisplay { v: ctx.split(combination.clone()) })
+                .on_truecolor(0xEA, 0x9C, 0xAE));
+        }
 
-        let a = expand_combinations_iter(
-            ctx
+        let ttt = ctx
                 .split(combination)
                 .into_iter()
                 .zip(expression.terms.iter())
-                .map(|(subctx, term): (Ctx<'tg, 'tg, T>, _)| do_term(subctx, term))
+                .map(|(subctx, term): (Ctx<'tg, 'tg, T>, _)| do_term(subctx, term));
+
+        let a = expand_combinations_iter_dbg(
+            ttt
         ).map(|subcombination| {
             //println!("{}", format!("\t\tsubcombination: {:?}", subcombination).blue().italic());
 
-
-
-            let mut tree = ParseTree { lhs: production_name, rhs: vec![] };
+            let mut tree = ParseTree { lhs: production_name, rhs: Vec::new() };
             let mut error: Option<Error> = None;
 
             for t in subcombination {        
@@ -136,7 +163,7 @@ pub fn do_expression<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>, production_name: &'tg
     Box::new(r)
 }
 
-
+#[inline]
 pub fn make_ctx<'tg, T: Token>(
     grammar: &'tg Grammar, 
     tokens: &'tg Vec<T>, 
@@ -155,20 +182,33 @@ pub fn make_ctx<'tg, T: Token>(
     }
 }
 
+#[inline]
 pub fn parse<'tg, T: Token>(ctx: Ctx<'tg, 'tg, T>) -> ParseTreeIter<'tg, T> {
     if ctx.logs_enabled {
         println!("input: {:?} <- {:#?}", ctx.tokens, ctx.grammar);
     }
 
-    let err = Err("grammar is empty".to_string()) as Result<ParseTree<'tg, 'tg, T>, _>;
-
     if let Some(first) = ctx.grammar.productions.first() {
-        let a = do_production(ctx, first);
-        a
+        do_production(ctx, first)
     } else {
+        let err = Err("grammar is empty".to_string()) as Result<ParseTree<'tg, 'tg, T>, _>;
         Box::new(std::iter::once(err)) as ParseTreeIter<'tg, T>
     }
 }
+
+// E ::= T + E | T - E | T
+// T ::= F * T | F / T | F
+// T ::= F * T | F / T | F
+// F ::= id | num_lit
+// 
+// x + y * z
+// 
+// E
+//
+//
+//
+//
+//
 
 
 //pub fn parse<'tg, T: Token>(grammar: &'tg Grammar, tokens: &'tg Vec<T>) -> ParseTreeIter<'tg, T> {

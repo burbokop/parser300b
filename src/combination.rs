@@ -1,8 +1,19 @@
-use std::{collections::{VecDeque}};
+use std::{collections::{VecDeque}, fmt::Display};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combination {
     pub marks: Vec<usize>
+}
+
+impl Display for Combination {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut list = f.debug_list();
+        for m in self.marks.iter() {
+            list.entry(m);
+        }
+        list.finish()
+    }
 }
 
 struct Comb<T> {
@@ -10,10 +21,12 @@ struct Comb<T> {
 }
 
 impl<T: Clone> Comb<T> {
+    #[inline]
     fn clone_with(&self, v: T) -> Comb<T> {
-        let mut c = Comb { values: self.values.clone() };
-        c.values.push(v);
-        c
+        let mut new = Vec::with_capacity(self.values.len() + 1);
+        new.clone_from(&self.values);
+        new.push(v);
+        Comb { values: new }
     }
 }
 
@@ -31,18 +44,17 @@ impl<T: Clone> Comb<T> {
 /// (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
 /// result:
 /// (1, 3, 5),   (1, 4, 5),   (2, 3, 5),   (2, 4, 5)
+#[inline]
 pub fn expand_combinations<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>> 
 where
     T: Clone,
 {
-    
-
-    let mut deq: VecDeque<Comb<T>> = VecDeque::new();
-
     if input.len() > 0 {
-        for v in input[0].clone() {
-            deq.push_back(Comb { values: vec![ v ] });
-        }
+        let mut deq: VecDeque<Comb<T>> = input[0]
+            .clone()
+            .into_iter()
+            .map(|v| Comb { values: vec![ v ] })
+            .collect();
 
         while let Some(front) = deq.pop_front() {
             if front.values.len() < input.len() {
@@ -60,6 +72,7 @@ where
     }
 }
 
+#[inline]
 pub fn expand_combinations_iter<T: Clone>(input: impl Iterator<Item = impl Iterator<Item = T>>) -> impl Iterator<Item = impl Iterator<Item = T>> {
     if true {
         let r = expand_combinations(input.map(|x| x.collect::<Vec<_>>()).collect::<Vec<_>>())
@@ -72,44 +85,68 @@ pub fn expand_combinations_iter<T: Clone>(input: impl Iterator<Item = impl Itera
     }
 }
 
-pub fn generate_combinations(begin: usize, end: usize, count: usize) -> Vec<Combination> {
+#[inline]
+pub fn expand_combinations_iter_dbg<T, E>(input: impl Iterator<Item = impl Iterator<Item = Result<T, E>>>) -> impl Iterator<Item = impl Iterator<Item = Result<T, E>>>
+where 
+    Result<T, E>: Clone,
+    T: Display,
+    E: Display
+{
+    if true {
+        let input_vec = input.map(|x| x.collect::<Vec<_>>()).collect::<Vec<_>>();
 
+        println!("start:");
+        for i in input_vec.clone() {
+            println!("  outer:");
+            for j in i {
+                match j {
+                    Ok(tree) => println!("    inner.tree:\n{:#}", tree),
+                    Err(err) => println!("    inner.err: {}", err)
+                }                
+            }
+            println!("  outer.end");
+        }
+        println!("end");
+
+        let r = expand_combinations(input_vec)
+            .into_iter()
+            .map(|x|x.into_iter());
+        r
+    } else {
+        todo!()
+        //ExpandCombinationsOuterIter { input: input }
+    }
+}
+
+
+#[inline]
+pub fn generate_combinations(begin: usize, end: usize, count: usize) -> Vec<Combination> {
     if end - begin < count {
         vec![]
     } else if count == 0 {
         vec![ Combination { marks: vec![] } ]
-    } else {                
-        let mut marks: Vec<usize> = Vec::new();
-        for i in 0..count {
-            marks.push(begin + i);
-        }
+    } else {
+        let mut marks: Vec<usize> = (0..count)
+            .map(|i| begin + i)
+            .collect();
 
         let mut result: Vec<Combination> = Vec::new();
-        
         loop {
             if marks[marks.len() - 1] < end {
-                //println!("m: {:?}", marks.clone());
                 result.push(Combination { marks: marks.clone() });
             }
             
-            let mut moved: bool = false;
-            for i in (0..count).rev() {
+            if (0..count).rev().all(|i| {
                 if marks[i] < end {
                     marks[i] += 1;
-
-                    for (offset, j) in ((i + 1)..count).enumerate() {
+                    ((i + 1)..count).enumerate().for_each(|(offset, j)| {
                         marks[j] = marks[i] + offset + 1;
-                    }
-
-                    moved = true;
-                    break;
+                    });
+                    false
                 } else {
-                    //marks[i] += 1;
+                    true
                 }
-            }
-            if !moved {
-                break;
-            }
+            }) { break; }
         }
         result            
     }
